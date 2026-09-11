@@ -16,22 +16,11 @@ import (
 // SSE is the upstream server-sent-event generator.
 type SSE = ds.ServerSentEventGenerator
 
-// PatchElementOption configures an elements patch (selector, mode, ...).
-type PatchElementOption = ds.PatchElementOption
-
-// TemplComponent matches templ's generated components structurally, so no
-// templ import is needed here.
-type TemplComponent = ds.TemplComponent
-
 // Re-exported patch options, so callers only need this package.
 var (
 	WithSelectorID = ds.WithSelectorID
-	WithSelector   = ds.WithSelector
 	WithModeAppend = ds.WithModeAppend
 	WithModeInner  = ds.WithModeInner
-	WithModeRemove = ds.WithModeRemove
-	WithModeBefore = ds.WithModeBefore
-	WithModeAfter  = ds.WithModeAfter
 )
 
 // ReadSignals decodes Datastar signals from the request (query param for
@@ -40,7 +29,8 @@ func ReadSignals(r *http.Request, v any) error {
 	return ds.ReadSignals(r, v)
 }
 
-// NewSSE upgrades w to a text/event-stream response and flushes the headers.
+// NewSSE sets the text/event-stream response headers and returns a generator;
+// the first written event flushes them.
 func NewSSE(w http.ResponseWriter, r *http.Request) *SSE {
 	return ds.NewSSE(w, r)
 }

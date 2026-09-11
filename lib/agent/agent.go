@@ -47,7 +47,7 @@ func buildSystemPrompt() string {
 // appended to make the model stand down and answer directly.
 const maxToolRounds = 25
 
-// stopCallingToolsNotice: one-off developer message appended on the
+// stopCallingToolsNotice: one-off system message appended on the
 // maxToolRounds round. Request-only, never persisted to chat_messages, so it
 // doesn't leak into future turns.
 const stopCallingToolsNotice = "You have used the maximum number of tool calls " +
@@ -171,7 +171,7 @@ func (a *Agent) StreamReply(
 			requestTools = nil
 			requestMessages = append(
 				append([]openai.ChatCompletionMessageParamUnion{}, messages...),
-				openai.DeveloperMessage(stopCallingToolsNotice),
+				openai.SystemMessage(stopCallingToolsNotice),
 			)
 		}
 		acc, text, reasoning, err := a.streamOnce(ctx, requestMessages, requestTools, h)
@@ -308,7 +308,7 @@ func reasoningDelta(delta openai.ChatCompletionChunkChoiceDelta) string {
 
 func buildMessages(history []sqlc.ChatMessage) []openai.ChatCompletionMessageParamUnion {
 	messages := make([]openai.ChatCompletionMessageParamUnion, 0, len(history)+1)
-	messages = append(messages, openai.DeveloperMessage(systemPrompt))
+	messages = append(messages, openai.SystemMessage(systemPrompt))
 	for _, m := range history {
 		switch m.Type {
 		case "user":

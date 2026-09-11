@@ -20,6 +20,7 @@ reload development loop is set up and ready to go.
 | `DB_PATH` | `./data/sqlite.db` | SQLite database file. |
 | `HOST` / `PORT` | `localhost` / `8080` | Listen address. |
 | `DB_MIGRATE_ON_START` | `false` | Run goose migrations on startup. |
+| `COOKIE_SECURE` | `false` | Mark the session cookie `Secure` when serving over HTTPS. |
 
 Requirements:
 

@@ -22,14 +22,20 @@ type Env = struct {
 	OpenAIBaseURL string
 	// Path to the sqlite database file. Defaults to "./data/sqlite.db".
 	DBPath string
+	// Set COOKIE_SECURE=true (or 1, t, etc.) when serving over HTTPS, so the
+	// session cookie is marked Secure. Defaults to false for plain-HTTP
+	// local/dev deployments.
+	CookieSecure bool
 }
 
 var Vars *Env
 
 func init() {
 	migrate, _ := strconv.ParseBool(os.Getenv("DB_MIGRATE_ON_START"))
+	cookieSecure, _ := strconv.ParseBool(os.Getenv("COOKIE_SECURE"))
 	Vars = &Env{
 		DbMigrateOnStart: migrate,
+		CookieSecure:     cookieSecure,
 		Host:             GetEnv("HOST", "localhost"),
 		Port:             GetEnv("PORT", "8080"),
 		LiveReloadHost:   os.Getenv("LIVE_RELOAD_PROXY_HOST"),

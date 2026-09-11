@@ -32,6 +32,7 @@ const (
 	ChatMessagesID = "chat-messages"
 	SessionListID  = "session-list"
 	StopButtonID   = "stop-button"
+	ChatFormID     = "chat-form"
 )
 
 // Signals is the reactive state the root page starts with. sessionId tells
@@ -114,19 +115,19 @@ templ RootPage(currentSessionID string, chatSessions []sqlc.ChatSession, message
 					</div>
 					<script defer src={ chatwego.StaticRootPath("static/page-files/root/root.js") }></script>
 					<form
+						id={ ChatFormID }
 						class="flex w-full max-w-xl gap-2"
 						data-on:submit="
 							window.answering = true;
 							$_controller.abort();
 							$_controller = new AbortController();
-							@post('/send-prompt', { requestCancellation: $_controller });
+							@post('/send-prompt', { requestCancellation: $_controller, retry: 'never' });
 							$draft = '';
 						"
 					>
 						<div class="relative w-full">
 							<textarea
 								id="chat-textarea"
-								name="textarea"
 								class={ htmlclass.Join(
 								"w-full rounded-xl p-4 pr-12 border border-gray-300",
 								"dark:bg-neutral-800 dark:border-neutral-600",
@@ -172,8 +173,8 @@ templ SessionList(currentSessionID string, chatSessions []sqlc.ChatSession) {
 		</li>
 		for _, sess := range chatSessions {
 			if sess.ID == currentSessionID {
-				<li class={ twmerge.Merge(sessionsLiClasses, sessionsLinkClasses, "bg-gray-200 font-medium dark:bg-neutral-750") }>
-					{ sess.Title.String }
+				<li class={ twmerge.Merge(sessionsLiClasses, "bg-gray-200 font-medium dark:bg-neutral-750") }>
+					<span class={ sessionsLinkClasses }>{ sess.Title.String }</span>
 				</li>
 			} else {
 				<li class={ sessionsLiClasses }>

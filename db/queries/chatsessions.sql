@@ -24,15 +24,6 @@ VALUES
 RETURNING
   *;
 
--- name: UpdateChatSessionTitle :exec
-UPDATE
-  chat_sessions
-SET
-  title = ?,
-  updated_at = CURRENT_TIMESTAMP
-WHERE
-  id = ?;
-
 -- name: CreateChatMessage :one
 INSERT INTO
   chat_messages (session_id, type, content, reasoning, tool_calls, tool_call_id, created_at)
@@ -42,6 +33,9 @@ RETURNING
   *;
 
 -- name: GetMessagesBySession :many
+-- Order by id (the monotonic rowid), not created_at: CURRENT_TIMESTAMP has
+-- one-second resolution, so every message written during one reply shares a
+-- timestamp and would come back in an undefined order.
 SELECT
   *
 FROM
@@ -49,4 +43,4 @@ FROM
 WHERE
   session_id = ?
 ORDER BY
-  created_at ASC;
+  id ASC;

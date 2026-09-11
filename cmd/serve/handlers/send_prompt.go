@@ -99,8 +99,7 @@ func (h *Handlers) SendPrompt(w http.ResponseWriter, r *http.Request) {
 }
 
 // resolveSession returns the session to use for this prompt. It creates a new
-// one when sessionID is empty or not owned by identityID, and refreshes the
-// placeholder title of an existing "New chat" session otherwise.
+// one when sessionID is empty or not owned by identityID.
 func (h *Handlers) resolveSession(
 	ctx context.Context,
 	identityID, sessionID, message string,
@@ -110,14 +109,6 @@ func (h *Handlers) resolveSession(
 		// A session owned by another identity is treated as unknown: start a
 		// fresh one rather than writing into it.
 		if err == nil && chatSession.IdentityID == identityID {
-			if chatSession.Title.String == "New chat" {
-				if err := h.queries.UpdateChatSessionTitle(ctx, sqlc.UpdateChatSessionTitleParams{
-					Title: sql.NullString{String: truncateTitle(message), Valid: true},
-					ID:    sessionID,
-				}); err != nil {
-					h.logger.Error("Failed to update session title", slog.Any("error", err))
-				}
-			}
 			return sessionID, false, nil
 		}
 	}
@@ -229,7 +220,9 @@ func (h *Handlers) streamAssistantReply(
 ) ([]agent.Round, error) {
 	history, err := h.queries.GetMessagesBySession(ctx, sessionID)
 	if err != nil {
-		h.logger.Error("Failed to get message history", slog.Any("error", err))
+		// Answering without history would drop the just-sent prompt from the
+		// model's context, so fail instead of replying to nothing.
+		return nil, fmt.Errorf("get message history: %w", err)
 	}
 
 	// Each round is persisted as its own row (see storeRounds), so it also

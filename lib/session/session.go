@@ -37,12 +37,11 @@ func IdentityFromContext(ctx context.Context) string {
 	return identity.SystemIdentityID
 }
 
-func SessionDataFromContext(ctx context.Context) (SessionData, bool) {
-	s, ok := ctx.Value(contextKey{}).(SessionData)
-	return s, ok
-}
-
-func Middleware(logger *slog.Logger, queries *sqlc.Queries) func(http.Handler) http.Handler {
+func Middleware(
+	logger *slog.Logger,
+	queries *sqlc.Queries,
+	secureCookie bool,
+) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if strings.HasPrefix(r.URL.Path, "/static/") {
@@ -93,7 +92,7 @@ func Middleware(logger *slog.Logger, queries *sqlc.Queries) func(http.Handler) h
 				return
 			}
 
-			setCookie(w, token)
+			setCookie(w, token, secureCookie)
 
 			sd := SessionData{
 				IdentityID:  identity.SystemIdentityID,
@@ -139,12 +138,13 @@ func hashToken(token string) []byte {
 	return h[:]
 }
 
-func setCookie(w http.ResponseWriter, token string) {
+func setCookie(w http.ResponseWriter, token string, secure bool) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     cookieName,
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   secure,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   int(cookieMaxAge.Seconds()),
 	})

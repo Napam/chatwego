@@ -14,6 +14,7 @@ type FollowMode = { isFollowing: () => boolean; scrollToBottom: () => void; scro
 const CHAT_MESSAGES_ID = 'chat-messages'
 const STOP_BUTTON_ID = 'stop-button'
 const CHAT_TEXTAREA_ID = 'chat-textarea'
+const CHAT_FORM_ID = 'chat-form'
 // window.answering is the stream-liveness flag: set by the composer's submit
 // action before a prompt, cleared by finalizeStream.
 const w = window as unknown as StreamWindow
@@ -208,7 +209,12 @@ function initStreamLifecycle(container: HTMLElement, thoughts: ThoughtsSync) {
   // 'started' when the request begins, 'finished'/'error' when it ends.
   // Aborting counts as finished, so stop runs through the same cleanup.
   document.addEventListener('datastar-fetch', (e) => {
-    const type = (e as CustomEvent).detail?.type
+    const detail = (e as CustomEvent).detail
+    // Only the composer's fetch drives the chat UI. Datastar fires this for
+    // every action on the page, and another action finishing must not clear
+    // the stop button or settle the live reply.
+    if (detail?.el?.id !== CHAT_FORM_ID) return
+    const type = detail.type
     if (type === 'started') {
       w.answering = true
       showStop(true)

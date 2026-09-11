@@ -90,9 +90,12 @@ FROM
 WHERE
   session_id = ?
 ORDER BY
-  created_at ASC
+  id ASC
 `
 
+// Order by id (the monotonic rowid), not created_at: CURRENT_TIMESTAMP has
+// one-second resolution, so every message written during one reply shares a
+// timestamp and would come back in an undefined order.
 func (q *Queries) GetMessagesBySession(ctx context.Context, sessionID string) ([]ChatMessage, error) {
 	rows, err := q.db.QueryContext(ctx, getMessagesBySession, sessionID)
 	if err != nil {
@@ -189,24 +192,4 @@ func (q *Queries) GetSessionsByOwner(ctx context.Context, identityID string) ([]
 		return nil, err
 	}
 	return items, nil
-}
-
-const updateChatSessionTitle = `-- name: UpdateChatSessionTitle :exec
-UPDATE
-  chat_sessions
-SET
-  title = ?,
-  updated_at = CURRENT_TIMESTAMP
-WHERE
-  id = ?
-`
-
-type UpdateChatSessionTitleParams struct {
-	Title sql.NullString
-	ID    string
-}
-
-func (q *Queries) UpdateChatSessionTitle(ctx context.Context, arg UpdateChatSessionTitleParams) error {
-	_, err := q.db.ExecContext(ctx, updateChatSessionTitle, arg.Title, arg.ID)
-	return err
 }

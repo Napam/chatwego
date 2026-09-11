@@ -116,8 +116,6 @@ DROP TABLE IF EXISTS identity_roles;
 
 DROP TABLE IF EXISTS session_tokens;
 
-DROP TABLE IF EXISTS logins_whitelist;
-
 DROP TABLE IF EXISTS logins;
 
 DROP TABLE IF EXISTS identities;

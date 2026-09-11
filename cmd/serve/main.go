@@ -80,7 +80,14 @@ func run(logger *slog.Logger) error {
 	}
 	logger.LogAttrs(context.Background(), slog.LevelInfo, "Server running", logAttrs...)
 
-	if err := http.ListenAndServe(env.Vars.Host+":"+env.Vars.Port, router); err != nil {
+	srv := &http.Server{
+		Addr:    env.Vars.Host + ":" + env.Vars.Port,
+		Handler: router,
+		// No WriteTimeout: an SSE reply stays open for the whole model
+		// response, and a write deadline would cut it off.
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	if err := srv.ListenAndServe(); err != nil {
 		return fmt.Errorf("listen and serve: %w", err)
 	}
 	return nil
@@ -108,7 +115,7 @@ func SetupRouter(logger *slog.Logger, dbConn *sql.DB, chatAgent *agent.Agent) *c
 	router.Use(middleware.Recoverer)
 
 	dbQueries := sqlc.New(dbConn)
-	router.Use(session.Middleware(logger, dbQueries))
+	router.Use(session.Middleware(logger, dbQueries, env.Vars.CookieSecure))
 
 	chatwego.SetupStatic(router)
 
