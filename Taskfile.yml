@@ -63,8 +63,9 @@ tasks:
           echo "$LIVE_RELOAD_PROXY_HOST:$LIVE_RELOAD_PROXY_PORT is already in use — another dev session or orphaned watchers?" >&2
           exit 1
         fi
-      # Ctrl+C SIGINTs the whole process group; templ tears down the dev-run.sh server
-      - task --parallel dev.tailwind dev.web dev.sql dev.go
+      # Ctrl+C SIGINTs the whole process group; templ tears down the dev-run.sh server.
+      # hl formats the JSON server logs and passes the watchers' plain lines through.
+      - task --parallel dev.tailwind dev.web dev.sql dev.go | hl -P
 
   dev.tailwind:
     desc: Watch and rebuild tailwind css

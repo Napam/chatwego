@@ -16,7 +16,6 @@ import (
 	"github.com/Napam/chatwego/db/generated/sqlc"
 	"github.com/Napam/chatwego/lib/agent"
 	"github.com/Napam/chatwego/lib/env"
-	"github.com/Napam/chatwego/lib/logging"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/openai/openai-go/v3"
@@ -25,8 +24,11 @@ import (
 )
 
 func main() {
-	handler := logging.NewHandler(&slog.HandlerOptions{Level: slog.LevelInfo})
-	logger := slog.New(handler)
+	// Plain JSON on stdout: `task dev` pipes it into hl for the human-readable
+	// view, and elsewhere it stays machine-parseable.
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
 
 	if err := run(logger); err != nil {
 		logger.Error("Server exited with error", slog.Any("error", err))

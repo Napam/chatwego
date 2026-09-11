@@ -35,7 +35,8 @@ Routes are registered in `cmd/serve/main.go`:
 | GET | `/static/*` | static | Hashed assets in prod, disk with `no-store` in dev. |
 
 Middleware, in order: request logging, then `chi`'s `Recoverer`. There is no
-auth middleware; all sessions and messages are global.
+auth middleware; all sessions and messages are global. Logs are `slog` JSON on
+stdout; `task dev` renders them with `hl`.
 
 ### Sending a prompt
 

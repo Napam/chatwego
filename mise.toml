@@ -1,5 +1,6 @@
 [tools]
 bun = "latest"
+"github:pamburus/hl" = "0.36.3"
 go = "1.27"
 golangci-lint = "2.13"
 task = "latest"

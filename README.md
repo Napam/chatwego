@@ -38,7 +38,9 @@ Requirements:
 ## Quickstart
 
 1. Run `task dev`. It installs the mise tools and JS deps, symlinks the git
-   pre-push hook, and starts the dev server with live reload.
+   pre-push hook, and starts the dev server with live reload. Output is piped
+   through [`hl`](https://github.com/pamburus/hl), which pretty-prints the
+   server's JSON logs and passes watcher output through.
 2. Open the live reloading proxy at `localhost:5081` (set via
    `LIVE_RELOAD_PROXY_PORT` in `Taskfile.yml`). The app itself listens on `PORT`
    (default `5080`).
@@ -221,8 +223,7 @@ git pre-push hook (installed by `task init`) runs `task check` as well.
 │   ├── datastar        server-side Datastar helpers
 │   ├── env             environment config
 │   ├── hashfs          content-hashed asset filesystem
-│   ├── htmlclass       class attribute join helper
-│   └── logging         slog handler
+│   └── htmlclass       class attribute join helper
 │
 ├── mise.toml           dev environment config
 │
