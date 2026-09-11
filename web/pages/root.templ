@@ -204,7 +204,7 @@ templ RootPage(currentSessionID string, chatSessions []sqlc.ChatSession, message
 								"text-gray-500 hover:bg-gray-100 active:bg-gray-200",
 								"dark:text-neutral-400 dark:hover:bg-neutral-700 dark:active:bg-neutral-600",
 							) }
-								data-on:click="window.answering && ($_controller.abort(), document.getElementById('chat-textarea')?.focus())"
+								data-on:click="$_controller.abort()"
 							>
 								<span class="block size-3 rounded-xs bg-current"></span>
 							</button>
