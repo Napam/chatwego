@@ -20,7 +20,7 @@ type SSE = ds.ServerSentEventGenerator
 var (
 	WithSelectorID = ds.WithSelectorID
 	WithModeAppend = ds.WithModeAppend
-	WithModeInner  = ds.WithModeInner
+	WithModeOuter  = ds.WithModeOuter
 )
 
 // ReadSignals decodes Datastar signals from the request (query param for

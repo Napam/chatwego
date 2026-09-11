@@ -43,7 +43,7 @@ Requirements:
    `LIVE_RELOAD_PROXY_PORT` in `Taskfile.yml`). The app itself listens on `PORT`
    (default `5080`).
 3. Start making changes: the application entrypoint is `cmd/serve/main.go` and
-   the frontend root page is `web/root/root.templ`.
+   the frontend root page is `web/pages/root.templ`.
 
 For a production build, run `task build.go` (output in `bin/app`).
 
@@ -102,12 +102,12 @@ two kinds of bundles:
   synchronously in `<head>` so all custom elements are registered before the
   body parses.
 - **Page bundles:** a `.ts` file in any other `web/` subdirectory (e.g.
-  `web/root/root.ts`, next to its `.templ`) becomes its own bundle at
+  `web/pages/root.ts`, next to its `.templ`) becomes its own bundle at
   `static/page-files/<dir>/<name>.js`. Load it on just that page:
 
   ```templ
   <script src={ chatwego.StaticRootPath("static/bundle.js") }></script>
-  <script defer src={ chatwego.StaticRootPath("static/page-files/root/root.js") }></script>
+  <script defer src={ chatwego.StaticRootPath("static/page-files/pages/root.js") }></script>
   ```
 
 Page files are plain top-level browser code, no exports needed. Avoid
@@ -234,11 +234,10 @@ git pre-push hook (installed by `task init`) runs `task check` as well.
 ├── tmp                 temp files/pidfiles, gitignored
 │
 └── web
-    ├── admin           templ admin page (tools + skills)
     ├── assets          committed static assets (→ static/assets/)
     ├── build.ts        script to build web assets, outputs to web/static
     ├── lib             shared typescript libraries + web components (→ static/bundle.js)
-    ├── root            templ root chat page (optional .ts → static/page-files/root/)
+    ├── pages           templ page views (root chat + admin) and their page scripts
     └── static          build artifacts (bundle.js, page-files/, tailwind.css), gitignored
 ```
 

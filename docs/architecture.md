@@ -19,7 +19,7 @@ browser ──templ HTML──> cmd/serve/handlers
    │ <──SSE patches──────────┤
    │                         └─> db/generated/sqlc ──> SQLite
    │
-   └─ root.ts + Lit components render what the patches append
+   └─ pages/root.ts + Lit components render what the patches append
 ```
 
 ## Request lifecycle
@@ -47,8 +47,8 @@ auth middleware; all sessions and messages are global.
 2. Resolve the session. An empty or unknown id creates a new one.
 3. Persist the user message.
 4. Open the SSE stream.
-5. First prompt in a session only: patch `#session-list` inner with the new
-   sidebar, patch the `sessionId` signal, and `ReplaceURL` to `/chats/<id>`.
+5. First prompt in a session only: morph the sidebar by id to include the new
+   session, patch the `sessionId` signal, and `ReplaceURL` to `/chats/<id>`.
 6. Patch signals to clear `draft` and set `hasMessages`, hide the welcome
    placeholder, and append the user bubble.
 7. Stream the assistant reply (see [Agent](#agent)), then persist every round.
@@ -73,8 +73,9 @@ data: signals {"draft":""}
 ```
 
 Element patches morph by id by default; the app uses `append` for new bubbles
-and accumulator text, and `inner` for the sidebar. `PatchTextAppend` appends
-model output as an HTML-escaped inert text node. Patches are parsed as HTML, so
+and accumulator text, and morphs the whole sidebar in place by id.
+`PatchTextAppend` appends model output as an HTML-escaped inert text node.
+Patches are parsed as HTML, so
 unescaped model text could inject markup; `PatchTextAppend` is the only path for
 untrusted streamed text and it never touches the raw HTML.
 
@@ -92,7 +93,7 @@ payload synchronously, so clearing `draft` afterward is safe.
 
 ### Page script
 
-`web/root/root.ts` has four subsystems:
+`web/pages/root.ts` has four subsystems:
 
 - **Thoughts sync:** toggles each round's reasoning disclosure between the
   pulsing "Thinking ..." label and "Thoughts", tracks whether the user opened it

@@ -1,6 +1,6 @@
 // Package htmlclass provides a small helper for building HTML class
 // attributes across templ pages, so pages don't need to depend on each other
-// (or on web/root specifically) just to share it.
+// (or on web/pages specifically) just to share it.
 package htmlclass
 
 import "strings"

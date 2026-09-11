@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/Napam/chatwego/db/generated/sqlc"
-	"github.com/Napam/chatwego/web/root"
+	"github.com/Napam/chatwego/web/pages"
 )
 
 func (h *Handlers) Index(w http.ResponseWriter, r *http.Request) {
@@ -14,7 +14,7 @@ func (h *Handlers) Index(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error("Failed to get sessions", slog.Any("error", err))
 	}
 	var messages []sqlc.ChatMessage
-	if err := root.RootPage("", chatSessions, messages).Render(r.Context(), w); err != nil {
+	if err := pages.RootPage("", chatSessions, messages).Render(r.Context(), w); err != nil {
 		h.logger.Error("Render failed", slog.Any("error", err))
 	}
 }

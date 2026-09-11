@@ -15,7 +15,7 @@ import (
 	"github.com/Napam/chatwego/db/generated/sqlc"
 	"github.com/Napam/chatwego/lib/agent"
 	ds "github.com/Napam/chatwego/lib/datastar"
-	"github.com/Napam/chatwego/web/root"
+	"github.com/Napam/chatwego/web/pages"
 	"github.com/google/uuid"
 )
 
@@ -75,9 +75,11 @@ func (h *Handlers) SendPrompt(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := sse.PatchElementTempl(
-		root.ChatContainer(root.MessageBubble{Message: message, ChatType: root.ChatTypeQuestion}),
+		pages.ChatContainer(
+			pages.MessageBubble{Message: message, ChatType: pages.ChatTypeQuestion},
+		),
 		ds.WithModeAppend(),
-		ds.WithSelectorID(root.ChatMessagesID),
+		ds.WithSelectorID(pages.ChatMessagesID),
 	); err != nil {
 		h.logger.Error("Failed to write user bubble partial", slog.Any("error", err))
 		return
@@ -190,10 +192,12 @@ func (h *Handlers) writeNewSessionPartials(
 	if err != nil {
 		h.logger.Error("Failed to get sessions", slog.Any("error", err))
 	}
+	// Outer mode morphs the whole <ol> in place by id. Inner mode would nest
+	// the patched <ol> inside the existing one, duplicating the id.
 	if err := sse.PatchElementTempl(
-		root.SessionList(sessionID, chatSessions),
-		ds.WithModeInner(),
-		ds.WithSelectorID(root.SessionListID),
+		pages.SessionList(sessionID, chatSessions),
+		ds.WithModeOuter(),
+		ds.WithSelectorID(pages.SessionListID),
 	); err != nil {
 		return fmt.Errorf("write sidebar partial: %w", err)
 	}
@@ -230,14 +234,14 @@ func (h *Handlers) streamAssistantReply(
 			reasoningID = "think-" + uuid.New().String()
 			toolCallsID = "tools-" + uuid.New().String()
 			return sse.PatchElementTempl(
-				root.ChatContainer(root.MessageBubble{
-					ChatType:    root.ChatTypeAnswer,
+				pages.ChatContainer(pages.MessageBubble{
+					ChatType:    pages.ChatTypeAnswer,
 					ID:          botBubbleID,
 					ReasoningID: reasoningID,
 					ToolCallsID: toolCallsID,
 				}),
 				ds.WithModeAppend(),
-				ds.WithSelectorID(root.ChatMessagesID),
+				ds.WithSelectorID(pages.ChatMessagesID),
 			)
 		},
 		OnDelta: func(delta string) error {
@@ -248,7 +252,7 @@ func (h *Handlers) streamAssistantReply(
 		},
 		OnToolCalls: func(calls []agent.ToolCallRecord) error {
 			return sse.PatchElementTempl(
-				root.ToolCallEntries(calls),
+				pages.ToolCallEntries(calls),
 				ds.WithModeAppend(),
 				ds.WithSelectorID(toolCallsID),
 			)

@@ -9,8 +9,9 @@ type StreamWindow = Window & { answering: boolean }
 type ThoughtsSync = { sync: () => void; finalize: () => void }
 type FollowMode = { isFollowing: () => boolean; scrollToBottom: () => void; scrollThoughts: () => void }
 
-// Element ids rendered by the RootPage template; named here so the page
-// script's hardcoded lookups can't drift from the template's const block.
+// Element ids rendered by the RootPage template. These mirror the template's
+// const block; keep them in sync (nothing enforces it across the Go/TS
+// boundary).
 const CHAT_MESSAGES_ID = 'chat-messages'
 const STOP_BUTTON_ID = 'stop-button'
 const CHAT_TEXTAREA_ID = 'chat-textarea'

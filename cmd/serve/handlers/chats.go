@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/Napam/chatwego/web/root"
+	"github.com/Napam/chatwego/web/pages"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -24,7 +24,7 @@ func (h *Handlers) GetChat(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("Failed to get messages", slog.Any("error", err))
 	}
-	if err := root.RootPage(sessionID, chatSessions, messages).Render(r.Context(), w); err != nil {
+	if err := pages.RootPage(sessionID, chatSessions, messages).Render(r.Context(), w); err != nil {
 		h.logger.Error("Render failed", slog.Any("error", err))
 	}
 }
