@@ -1,4 +1,4 @@
-# Backwego Template
+# ChatWeGo
 
 Opinionated template for SSR-first Go apps: templ for HTML, tailwindcss for
 styling, Lit for web components, sqlite for data, goose for migrations.
@@ -21,7 +21,7 @@ Requirements:
    <summary>Or you can git clone and reset the git state</summary>
 
    ```sh
-   git clone --depth 1 https://github.com/Napam/backwego-template my-app
+   git clone --depth 1 https://github.com/Napam/chatwego my-app
    cd my-app
    rm -rf .git
    git init && git add -A && git commit -m "initial"
@@ -100,8 +100,8 @@ two kinds of bundles:
   `static/page-files/<dir>/<name>.js`. Load it on just that page:
 
   ```templ
-  <script src={ backwegotemplate.StaticRootPath("static/bundle.js") }></script>
-  <script defer src={ backwegotemplate.StaticRootPath("static/page-files/root/root.js") }></script>
+  <script src={ chatwego.StaticRootPath("static/bundle.js") }></script>
+  <script defer src={ chatwego.StaticRootPath("static/page-files/root/root.js") }></script>
   ```
 
 Page files are plain top-level browser code, no exports needed. Avoid
@@ -120,7 +120,7 @@ automatically.
 Reference them in templ with the same helper the bundles use:
 
 ```templ
-<img src={ backwegotemplate.StaticRootPath("static/assets/logo.svg") } alt="Logo"/>
+<img src={ chatwego.StaticRootPath("static/assets/logo.svg") } alt="Logo"/>
 ```
 
 `StaticRootPath` returns a plain root-relative path in dev and a content-hashed

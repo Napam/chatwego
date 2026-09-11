@@ -8,12 +8,12 @@ import (
 	"os"
 	"strconv"
 
-	"backwegotemplate"
-	"backwegotemplate/db"
-	"backwegotemplate/db/generated/sqlc"
-	"backwegotemplate/lib/env"
-	"backwegotemplate/lib/logging"
-	"backwegotemplate/web/root"
+	"github.com/Napam/chatwego"
+	"github.com/Napam/chatwego/db"
+	"github.com/Napam/chatwego/db/generated/sqlc"
+	"github.com/Napam/chatwego/lib/env"
+	"github.com/Napam/chatwego/lib/logging"
+	"github.com/Napam/chatwego/web/root"
 	"github.com/go-chi/chi/v5"
 	_ "modernc.org/sqlite"
 )
@@ -29,7 +29,7 @@ func main() {
 		logger.Error("Could not get current workdir", slog.Any("error", err))
 	}
 
-	logger.Info("Initializing backwegotemplate", slog.String("cwd", cwd))
+	logger.Info("Initializing chatwego", slog.String("cwd", cwd))
 
 	router := chi.NewRouter()
 
@@ -46,7 +46,7 @@ func main() {
 	if env.Vars.DbMigrateOnStart {
 		_, err = db.RunMigrations(
 			context.Background(),
-			backwegotemplate.MigrationsFS,
+			chatwego.MigrationsFS,
 			dbConn,
 			logger,
 		)
@@ -58,7 +58,7 @@ func main() {
 
 	queries := sqlc.New(dbConn)
 
-	backwegotemplate.SetupStatic(router)
+	chatwego.SetupStatic(router)
 
 	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		users, _ := queries.GetAllUsers(r.Context())

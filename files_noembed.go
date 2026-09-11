@@ -1,6 +1,6 @@
 //go:build noembed
 
-package backwegotemplate
+package chatwego
 
 import (
 	"io/fs"

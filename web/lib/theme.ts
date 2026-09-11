@@ -1,6 +1,6 @@
 export type Theme = 'light' | 'dark'
 
-const STORAGE_KEY = 'backwegotemplate-theme'
+const STORAGE_KEY = 'chatwego-theme'
 const darkMedia = window.matchMedia('(prefers-color-scheme: dark)')
 
 function getInitialTheme(): Theme {

@@ -140,12 +140,12 @@ tasks:
         -e DB_MIGRATE_ON_START=$DB_MIGRATE_ON_START \
         -v $(pwd)/data:/app/data \
         -p $PORT:$PORT \
-        backwegotemplate:latest
+        chatwego:latest
 
   build.docker:
     desc: Build the production docker image
     cmds:
-      - docker build -t backwegotemplate:latest .
+      - docker build -t chatwego:latest .
 
   build.go:
     desc: Build the production binary with embedded assets into ./bin/app

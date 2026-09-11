@@ -1,4 +1,4 @@
-module backwegotemplate
+module github.com/Napam/chatwego
 
 go 1.27.0
 

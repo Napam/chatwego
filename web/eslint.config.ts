@@ -16,7 +16,7 @@ export default defineConfig([
   // tmp/, static/, dist/ hold generated output and aren't linted.
   // node_modules and dotfiles are ignored by default in flat config.
   {
-    ignores: ['tmp/**', 'static/**', 'dist/**'],
+    ignores: ['tmp/**', 'static/**', 'dist/**', 'assets/**'],
   },
 
   {
