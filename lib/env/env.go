@@ -37,7 +37,7 @@ func init() {
 		DbMigrateOnStart: migrate,
 		CookieSecure:     cookieSecure,
 		Host:             GetEnv("HOST", "localhost"),
-		Port:             GetEnv("PORT", "8080"),
+		Port:             GetEnv("PORT", "5080"),
 		LiveReloadHost:   os.Getenv("LIVE_RELOAD_PROXY_HOST"),
 		LiveReloadPort:   os.Getenv("LIVE_RELOAD_PROXY_PORT"),
 		OpenAIModel:      GetEnv("OPENAI_MODEL", "gpt-4o-mini"),

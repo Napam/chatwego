@@ -30,3 +30,32 @@
     but each duplicates code into the page bundle (iife has no code
     splitting). Don't import web components from `lib/`: re-registering them
     throws.
+
+## Project shape
+
+- HTTP entrypoint and routes: `cmd/serve/main.go`. Handlers live in
+  `cmd/serve/handlers/`.
+- Migrations are goose files in `db/migrations/`, queries are sqlc files in
+  `db/queries/`, and generated code is in `db/generated/sqlc/`. Never hand-edit
+  generated code; run `task gen.db`.
+- The agent lives in `lib/agent`: the streaming loop in `agent.go`, tools in
+  `lib/agent/tools/` (one file per tool, self-registered into `tools.All`),
+  skills as markdown files in `lib/agent/skills/`.
+- Cookie sessions are `lib/session`; the bootstrap uses the seeded system
+  identity from `lib/identity`.
+- Read `docs/architecture.md` before changing the streaming path or the agent
+  loop.
+
+## Conventions
+
+- Streaming endpoints use `lib/datastar`, not `datastar-go` directly. Decode
+  signals with `datastar.ReadSignals` before opening the stream with
+  `datastar.NewSSE`.
+- Stream untrusted model text with `datastar.PatchTextAppend`. Element patches
+  are parsed as HTML, so raw text has to stay escaped.
+- Use `htmlclass.Join` for plain class joins and `twmerge.Merge` only when
+  utilities actually conflict (component overrides, active-state toggles).
+- Message history is ordered by `id`, not `created_at`. Keep live streaming and
+  reload rendering consistent: one bubble per persisted round.
+- Reference assets, bundles, and icons through `chatwego.StaticRootPath`; don't
+  hardcode `/static/...`.

@@ -5,57 +5,48 @@ tool calls, keeps a per-session sidebar, and talks to any OpenAI-compatible
 chat completions API (llama.cpp, Ollama, vLLM, LM Studio, or OpenAI itself).
 
 The server renders HTML with templ and streams updates with
-[Datastar](https://data-star.dev/). SQLite stores identities, sessions, and
-messages; goose manages migrations and sqlc generates the queries. Everything
-compiles into a single binary. All tooling is managed by mise, and the live
-reload development loop is set up and ready to go.
+[Datastar](https://data-star.dev/) over SSE. SQLite stores identities, sessions,
+and messages; goose manages migrations and sqlc generates the queries.
+Everything compiles into a single binary.
+
+## Features
+
+- Streaming markdown replies with syntax highlighting, tables, and task lists
+- Collapsible reasoning and tool-call disclosures, both live and on reload
+- Per-session sidebar with URL-backed sessions (`/chats/<id>`)
+- Stop button; submitting a new prompt cancels the in-flight reply
+- Tool registry and markdown skills, both listed on `/admin`
+- Cookie sessions over an identity model that is ready for real logins
+- Web assets and migrations embedded in the production binary
 
 ## Configuration
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `OPENAI_BASE_URL` | `http://localhost:6700` | Base URL of the OpenAI-compatible API (the llama.cpp/llama-server default). |
-| `OPENAI_MODEL` | `gpt-4o-mini` | Chat model to request. |
-| `OPENAI_API_KEY` | unset | Sent as a bearer token when pointed at a provider that requires one. |
-| `DB_PATH` | `./data/sqlite.db` | SQLite database file. |
-| `HOST` / `PORT` | `localhost` / `8080` | Listen address. |
-| `DB_MIGRATE_ON_START` | `false` | Run goose migrations on startup. |
-| `COOKIE_SECURE` | `false` | Mark the session cookie `Secure` when serving over HTTPS. |
+| Variable              | Default                 | Purpose                                                                              |
+| --------------------- | ----------------------- | ------------------------------------------------------------------------------------ |
+| `OPENAI_BASE_URL`     | `http://localhost:6700` | Base URL of the OpenAI-compatible API (the llama.cpp/llama-server default).          |
+| `OPENAI_MODEL`        | `gpt-4o-mini`           | Chat model to request.                                                               |
+| `OPENAI_API_KEY`      | unset                   | Read by the OpenAI client and sent as a bearer token when the provider requires one. |
+| `DB_PATH`             | `./data/sqlite.db`      | SQLite database file.                                                                |
+| `HOST` / `PORT`       | `localhost` / `5080`    | Listen address.                                                                      |
+| `DB_MIGRATE_ON_START` | `false`                 | Run goose migrations on startup. `task dev` sets it to `true`.                       |
+| `COOKIE_SECURE`       | `false`                 | Mark the session cookie `Secure` when serving over HTTPS.                            |
 
 Requirements:
 
-- [mise](https://mise.jdx.dev) for development environment setup - mise must be [activated](https://mise.jdx.dev/getting-started.html#activate-mise).
+- [mise](https://mise.jdx.dev) for development environment setup - mise must be
+  [activated](https://mise.jdx.dev/getting-started.html#activate-mise).
 
 ## Quickstart
 
-1. Grab the repo via GitHub's "Use this template" button
-   (gives you a fresh repo with no history).
-
-   <details>
-   <summary>Or you can git clone and reset the git state</summary>
-
-   ```sh
-   git clone --depth 1 https://github.com/Napam/chatwego my-app
-   cd my-app
-   rm -rf .git
-   git init && git add -A && git commit -m "initial"
-   ```
-
-   </details>
-
-2. Planning to use it for your own project? Run the rename wizard first:
-   [Renaming](#renaming).
-
-3. Run `task dev`. It sets up the git pre-push hook and starts the dev
-   server with live reload.
-
-4. Open the live reloading proxy at `localhost:7331`. The app itself listens on `PORT`
-   (default `8080`).
-
-5. Start making changes: the application entrypoint is `cmd/serve/main.go` and
+1. Run `task dev`. It installs the mise tools and JS deps, symlinks the git
+   pre-push hook, and starts the dev server with live reload.
+2. Open the live reloading proxy at `localhost:5081` (set via
+   `LIVE_RELOAD_PROXY_PORT` in `Taskfile.yml`). The app itself listens on `PORT`
+   (default `5080`).
+3. Start making changes: the application entrypoint is `cmd/serve/main.go` and
    the frontend root page is `web/root/root.templ`.
 
-For production build: `task build.go` (output in `bin/app`).
+For a production build, run `task build.go` (output in `bin/app`).
 
 Docker:
 
@@ -64,38 +55,31 @@ task build.docker       # build image
 task build.docker.run   # build and run
 ```
 
-## Renaming
-
-There's an interactive rename wizard:
-
-`./scripts/rename.sh`
-
-It replaces the Go module/package name, the display name, and the kebab-case
-project name across all source files.
-
-**Note:** This is a one-way operation. To undo, use `git checkout .`.
-
 ## How it works
 
-The server renders HTML with templ. The composer POSTs to `/send-prompt` and
-Datastar streams the reply back over SSE: each text delta is appended to a
-hidden accumulator, and the `<markdown-message>` web component (markdown-it +
-highlight.js) re-renders it live. Reasoning traces and tool calls render as
-collapsible disclosures. The sidebar and session URL update as sessions are
-created.
+The composer `POST`s to `/send-prompt` and Datastar streams the reply back over
+SSE. Each assistant round appends a bubble with hidden accumulators for the
+reply text and reasoning; every delta is appended as an inert text node, and the
+`<markdown-message>` web component (markdown-it + highlight.js) re-renders the
+accumulator live. Tool calls render as collapsible disclosures. When the first
+prompt creates a session, the server patches both the sidebar and the session
+URL.
 
-A visitor gets a cookie session on first request. All sessions and messages
-are scoped to the resolved identity; the schema supports real logins, but the
+A visitor gets a cookie session on first request. Sessions and messages are
+scoped to the resolved identity; the schema supports real logins, but the
 current bootstrap always uses a system identity.
 
 - Production builds embed web assets and migrations into the binary; dev mode
-  serves them from disk, so changes show up on reload without a rebuild
-  (details under [Web assets](#web-assets)).
-- Web components with shadow DOM and shared TailwindCSS (and working dark mode
-  toggling)
-- Dockerfile that builds a minimal scratch image
+  serves them from disk so changes show up on reload without a rebuild (see
+  [Web assets](#web-assets)).
+- Web components with shadow DOM and shared TailwindCSS (with working dark mode
+  toggling).
+- A Dockerfile that builds a minimal scratch image.
 - golangci-lint, eslint, and prettier preconfigured. `task check` runs a full
-  backend+frontend static, lint, and compile check.
+  backend and frontend static, lint, and compile check.
+
+See [docs/architecture.md](docs/architecture.md) for the request lifecycle,
+streaming protocol, agent loop, and data model.
 
 Tech stack:
 
@@ -170,31 +154,36 @@ Migrations live in `db/migrations/` (goose format), queries in
 3. Add or update queries in `db/queries/`
 4. `task gen.db` regenerates type-safe Go code into `db/generated/sqlc/`
 
-Migrations also run automatically on server startup (disable via
-`DB_MIGRATE_ON_START=false`).
+Migrations also run automatically on startup when `DB_MIGRATE_ON_START=true`,
+which `task dev` sets by default.
+
+## Adding tools and skills
+
+Tools live in `lib/agent/tools`, one file per tool. Each file registers itself
+into `tools.All` by declaring a package-level `var _ = register(tools.Tool{...})`,
+so adding a tool means adding a file, not editing a list. The agent advertises
+every registered tool to the model, and `/admin` lists it.
+
+Skills live in `lib/agent/skills` as markdown files with YAML frontmatter:
+
+```markdown
+---
+name: example
+description: What this skill is for and when the model should fetch it.
+---
+
+The instructions handed back to the model when it fetches this skill.
+```
+
+Only the name and description go into the system prompt; the body is fetched on
+demand through the `skill` tool. Skills are embedded into the binary, so adding
+one means dropping in a `.md` file. `/admin` lists them too.
 
 ## Linting and checks
 
 `task check` runs all checks in parallel: compile + golangci-lint for the go
 code, and prettier + eslint + typescript + bundle build for the web code. The
 git pre-push hook (installed by `task init`) runs `task check` as well.
-
-## What next
-
-You may want to:
-
-- **Add real logins:** the identity/session tables and middleware are already
-  in place; only the login flow is missing. Replace the system-identity
-  bootstrap in `lib/session/session.go` with a real provider.
-- **Add tools or skills:** drop a new tool in `lib/agent/tools` (self-registered
-  via `tools.All`) or a markdown skill in `lib/agent/skills`. Both show up on
-  `/admin` automatically.
-- **Swap the database:** change the driver and connection string in
-  `cmd/serve/main.go` to use Postgres, MySQL, or another driver, then update
-  the sqlc config at `./db/sqlc.yaml`
-- **Switch to JSON logging:** replace `logging.NewHandler(...)` with
-  `slog.NewJSONHandler(os.Stdout, ...)` in `cmd/serve/main.go` for
-  production-ready JSON logs
 
 ## Project structure
 
@@ -205,49 +194,62 @@ You may want to:
 ├── bin                 build output, gitignored
 │
 ├── cmd
-│   └── serve           go entrypoint
+│   └── serve
+│       ├── main.go     wiring, router, http server
+│       └── handlers    HTTP handlers (index, chat, send-prompt, admin)
 │
 ├── data                runtime sqlite data (gitignored inside)
 │
+├── db
+│   ├── generated/sqlc  generated query code
+│   ├── migrations      goose migrations
+│   ├── queries         sqlc queries
+│   ├── migrate.go      migrations runner
+│   └── sqlc.yaml
+│
+├── docs
+│   └── architecture.md request lifecycle, streaming, agent, data model
+│
 ├── Dockerfile          production container image
 │
-├── db                  sqlc and migrations
+├── files_embed.go      embeds web/static + migrations for production builds
 │
-├── files_embed.go      embeds web/static for production builds
-│
-├── files_noembed.go    serves web/static from disk in dev mode, noembed tag
+├── files_noembed.go    serves web/static + migrations from disk in dev, noembed tag
 │
 ├── .hooks              git hooks, symlinked by task init
 │
 ├── lib                 shared go libraries
+│   ├── agent           streaming agent, tools, skills
+│   ├── datastar        server-side Datastar helpers
+│   ├── env             environment config
+│   ├── hashfs          content-hashed asset filesystem
+│   ├── htmlclass       class attribute join helper
+│   ├── identity        system identity constants
+│   ├── logging         slog handler
+│   └── session         cookie session middleware
 │
 ├── mise.toml           dev environment config
 │
 ├── scripts
-│   ├── dev-run.sh      dev server runner
-│   └── rename.sh       project rename wizard
+│   └── dev-run.sh      dev server runner
 │
 ├── Taskfile.yml        taskfile with all tasks
 │
 ├── tmp                 temp files/pidfiles, gitignored
 │
 └── web
+    ├── admin           templ admin page (tools + skills)
     ├── assets          committed static assets (→ static/assets/)
     ├── build.ts        script to build web assets, outputs to web/static
-    ├── lib             shared typescript libraries (→ static/bundle.js)
-    ├── root            templ root page (optional .ts → static/page-files/root/)
+    ├── lib             shared typescript libraries + web components (→ static/bundle.js)
+    ├── root            templ root chat page (optional .ts → static/page-files/root/)
     └── static          build artifacts (bundle.js, page-files/, tailwind.css), gitignored
 ```
 
-## Who this is for
+## Scaffolded from backwego-template
 
-I've tried to keep the template nice to use for anybody, but I've mainly
-optimized it for my own tools and workflows:
-
-1. Neovim 0.12+ with my custom config
-2. Being very CLI-first
-3. UNIX first, I have no plans of supporting Windows. It may work out of the box
-   anyways, I haven't tested.
+This project is scaffolded from
+[backwego-template](https://github.com/Napam/backwego-template)
 
 ## License
 
