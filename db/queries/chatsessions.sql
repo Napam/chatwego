@@ -1,10 +1,8 @@
--- name: GetSessionsByOwner :many
+-- name: ListChatSessions :many
 SELECT
   *
 FROM
   chat_sessions
-WHERE
-  identity_id = ?
 ORDER BY
   updated_at DESC;
 
@@ -18,9 +16,9 @@ WHERE
 
 -- name: CreateChatSession :one
 INSERT INTO
-  chat_sessions (id, title, identity_id, created_at, updated_at)
+  chat_sessions (id, title, created_at, updated_at)
 VALUES
-  (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+  (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 RETURNING
   *;
 

@@ -16,7 +16,6 @@ import (
 	"github.com/Napam/chatwego/lib/agent"
 	"github.com/Napam/chatwego/lib/env"
 	"github.com/Napam/chatwego/lib/logging"
-	"github.com/Napam/chatwego/lib/session"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/openai/openai-go/v3"
@@ -115,7 +114,6 @@ func SetupRouter(logger *slog.Logger, dbConn *sql.DB, chatAgent *agent.Agent) *c
 	router.Use(middleware.Recoverer)
 
 	dbQueries := sqlc.New(dbConn)
-	router.Use(session.Middleware(logger, dbQueries, env.Vars.CookieSecure))
 
 	chatwego.SetupStatic(router)
 

@@ -5,8 +5,8 @@ tool calls, keeps a per-session sidebar, and talks to any OpenAI-compatible
 chat completions API (llama.cpp, Ollama, vLLM, LM Studio, or OpenAI itself).
 
 The server renders HTML with templ and streams updates with
-[Datastar](https://data-star.dev/) over SSE. SQLite stores identities, sessions,
-and messages; goose manages migrations and sqlc generates the queries.
+[Datastar](https://data-star.dev/) over SSE. SQLite stores chat sessions and
+messages; goose manages migrations and sqlc generates the queries.
 Everything compiles into a single binary.
 
 ## Features
@@ -16,7 +16,7 @@ Everything compiles into a single binary.
 - Per-session sidebar with URL-backed sessions (`/chats/<id>`)
 - Stop button; submitting a new prompt cancels the in-flight reply
 - Tool registry and markdown skills, both listed on `/admin`
-- Cookie sessions over an identity model that is ready for real logins
+- Single-user and login-free; chat history is shared
 - Web assets and migrations embedded in the production binary
 
 ## Configuration
@@ -29,7 +29,6 @@ Everything compiles into a single binary.
 | `DB_PATH`             | `./data/sqlite.db`      | SQLite database file.                                                                |
 | `HOST` / `PORT`       | `localhost` / `5080`    | Listen address.                                                                      |
 | `DB_MIGRATE_ON_START` | `false`                 | Run goose migrations on startup. `task dev` sets it to `true`.                       |
-| `COOKIE_SECURE`       | `false`                 | Mark the session cookie `Secure` when serving over HTTPS.                            |
 
 Requirements:
 
@@ -65,9 +64,8 @@ accumulator live. Tool calls render as collapsible disclosures. When the first
 prompt creates a session, the server patches both the sidebar and the session
 URL.
 
-A visitor gets a cookie session on first request. Sessions and messages are
-scoped to the resolved identity; the schema supports real logins, but the
-current bootstrap always uses a system identity.
+The app is single-user and has no login. Every visitor sees the same session
+sidebar and chat history.
 
 - Production builds embed web assets and migrations into the binary; dev mode
   serves them from disk so changes show up on reload without a rebuild (see
@@ -224,9 +222,7 @@ git pre-push hook (installed by `task init`) runs `task check` as well.
 │   ├── env             environment config
 │   ├── hashfs          content-hashed asset filesystem
 │   ├── htmlclass       class attribute join helper
-│   ├── identity        system identity constants
-│   ├── logging         slog handler
-│   └── session         cookie session middleware
+│   └── logging         slog handler
 │
 ├── mise.toml           dev environment config
 │

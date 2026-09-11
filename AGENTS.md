@@ -41,8 +41,6 @@
 - The agent lives in `lib/agent`: the streaming loop in `agent.go`, tools in
   `lib/agent/tools/` (one file per tool, self-registered into `tools.All`),
   skills as markdown files in `lib/agent/skills/`.
-- Cookie sessions are `lib/session`; the bootstrap uses the seeded system
-  identity from `lib/identity`.
 - Read `docs/architecture.md` before changing the streaming path or the agent
   loop.
 

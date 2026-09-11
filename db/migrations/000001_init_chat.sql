@@ -1,14 +1,11 @@
 -- +goose Up
 CREATE TABLE chat_sessions (
   id TEXT PRIMARY KEY,
-  identity_id TEXT NOT NULL REFERENCES identities(id) ON UPDATE CASCADE ON DELETE CASCADE,
   title TEXT,
   metadata TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) STRICT;
-
-CREATE INDEX idx_chat_sessions_identity ON chat_sessions(identity_id);
 
 /*
 ===========================================================================

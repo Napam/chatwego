@@ -55,25 +55,23 @@ func (q *Queries) CreateChatMessage(ctx context.Context, arg CreateChatMessagePa
 
 const createChatSession = `-- name: CreateChatSession :one
 INSERT INTO
-  chat_sessions (id, title, identity_id, created_at, updated_at)
+  chat_sessions (id, title, created_at, updated_at)
 VALUES
-  (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+  (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 RETURNING
-  id, identity_id, title, metadata, created_at, updated_at
+  id, title, metadata, created_at, updated_at
 `
 
 type CreateChatSessionParams struct {
-	ID         string
-	Title      sql.NullString
-	IdentityID string
+	ID    string
+	Title sql.NullString
 }
 
 func (q *Queries) CreateChatSession(ctx context.Context, arg CreateChatSessionParams) (ChatSession, error) {
-	row := q.db.QueryRowContext(ctx, createChatSession, arg.ID, arg.Title, arg.IdentityID)
+	row := q.db.QueryRowContext(ctx, createChatSession, arg.ID, arg.Title)
 	var i ChatSession
 	err := row.Scan(
 		&i.ID,
-		&i.IdentityID,
 		&i.Title,
 		&i.Metadata,
 		&i.CreatedAt,
@@ -132,7 +130,7 @@ func (q *Queries) GetMessagesBySession(ctx context.Context, sessionID string) ([
 
 const getSessionById = `-- name: GetSessionById :one
 SELECT
-  id, identity_id, title, metadata, created_at, updated_at
+  id, title, metadata, created_at, updated_at
 FROM
   chat_sessions
 WHERE
@@ -144,7 +142,6 @@ func (q *Queries) GetSessionById(ctx context.Context, id string) (ChatSession, e
 	var i ChatSession
 	err := row.Scan(
 		&i.ID,
-		&i.IdentityID,
 		&i.Title,
 		&i.Metadata,
 		&i.CreatedAt,
@@ -153,19 +150,17 @@ func (q *Queries) GetSessionById(ctx context.Context, id string) (ChatSession, e
 	return i, err
 }
 
-const getSessionsByOwner = `-- name: GetSessionsByOwner :many
+const listChatSessions = `-- name: ListChatSessions :many
 SELECT
-  id, identity_id, title, metadata, created_at, updated_at
+  id, title, metadata, created_at, updated_at
 FROM
   chat_sessions
-WHERE
-  identity_id = ?
 ORDER BY
   updated_at DESC
 `
 
-func (q *Queries) GetSessionsByOwner(ctx context.Context, identityID string) ([]ChatSession, error) {
-	rows, err := q.db.QueryContext(ctx, getSessionsByOwner, identityID)
+func (q *Queries) ListChatSessions(ctx context.Context) ([]ChatSession, error) {
+	rows, err := q.db.QueryContext(ctx, listChatSessions)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +170,6 @@ func (q *Queries) GetSessionsByOwner(ctx context.Context, identityID string) ([]
 		var i ChatSession
 		if err := rows.Scan(
 			&i.ID,
-			&i.IdentityID,
 			&i.Title,
 			&i.Metadata,
 			&i.CreatedAt,

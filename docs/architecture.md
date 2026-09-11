@@ -7,7 +7,7 @@ build. Source comments carry the fine detail; this is the map.
 ## Overview
 
 One Go binary serves both the app and its web assets. templ renders the HTML,
-Datastar streams updates over SSE, and SQLite stores identities, sessions, and
+Datastar streams updates over SSE, and SQLite stores chat sessions and
 messages. The frontend is a small page script plus Lit web components for
 markdown rendering. There is no client-side framework and no separate API.
 
@@ -29,14 +29,13 @@ Routes are registered in `cmd/serve/main.go`:
 | Method | Path | Handler | Purpose |
 | --- | --- | --- | --- |
 | GET | `/` | `Index` | New chat: sidebar plus the welcome placeholder. |
-| GET | `/chats/{sessionID}` | `GetChat` | Existing chat, with ownership check. |
+| GET | `/chats/{sessionID}` | `GetChat` | Existing chat. |
 | POST | `/send-prompt` | `SendPrompt` | Store the prompt, then stream the reply over SSE. |
 | GET | `/admin` | `Admin` | Read-only list of loaded tools and skills. |
 | GET | `/static/*` | static | Hashed assets in prod, disk with `no-store` in dev. |
 
-Middleware, in order: request logging, `chi`'s `Recoverer`, then the session
-middleware. `/static/` is skipped by the session middleware so asset requests
-don't touch the database.
+Middleware, in order: request logging, then `chi`'s `Recoverer`. There is no
+auth middleware; all sessions and messages are global.
 
 ### Sending a prompt
 
@@ -45,8 +44,7 @@ don't touch the database.
 1. Decode signals (`sessionId`, `draft`) with `datastar.ReadSignals`. This must
    happen before the SSE stream opens, because the response flush ends the
    window in which the request body is readable.
-2. Resolve the session. An empty or unknown id creates one owned by the current
-   identity; a session owned by another identity is treated as unknown.
+2. Resolve the session. An empty or unknown id creates a new one.
 3. Persist the user message.
 4. Open the SSE stream.
 5. First prompt in a session only: patch `#session-list` inner with the new
@@ -57,24 +55,6 @@ don't touch the database.
 
 Persisting after streaming uses `context.WithoutCancel`, so a client that
 disconnects mid-reply still gets the partial reply saved.
-
-## Sessions and identity
-
-Every visitor gets a cookie session on first request. The session cookie holds a
-random 32-byte token; the database stores only its SHA-256 hash in
-`session_tokens`, along with the identity and login it belongs to, an expiry,
-and a last-used timestamp.
-
-With no valid cookie, the middleware bootstraps a session for the seeded system
-identity (`lib/identity`) using the seeded system login. That makes the app work
-without a login flow while keeping the real schema in place. `IdentityFromContext`
-returns the resolved identity, falling back to the system identity.
-
-Chat sessions and messages are scoped to an identity. `GetChat` and
-`SendPrompt` both check ownership before reading or writing. Real logins can be
-added later by replacing the bootstrap with a provider; the tables
-(`identities`, `logins`, `session_tokens`, `identity_roles`) already model users
-and roles.
 
 ## Streaming and the client
 
@@ -183,12 +163,9 @@ is a `.md` file with YAML frontmatter. See the README for examples.
 
 ## Data model
 
-Two migrations, applied by goose and embedded in the binary:
+One migration, applied by goose and embedded in the binary:
 
-- `000001_init_auth.sql`: `identities`, `logins`, `session_tokens`,
-  `identity_roles`, plus a seeded system identity and system login. Triggers
-  block deleting the system identity.
-- `000002_init_chat.sql`: `chat_sessions` and `chat_messages`, plus a trigger
+- `000001_init_chat.sql`: `chat_sessions` and `chat_messages`, plus a trigger
   that bumps `chat_sessions.updated_at` on every insert.
 
 `chat_messages` is a multi-role table: `user`, `assistant`, and `tool` rows all

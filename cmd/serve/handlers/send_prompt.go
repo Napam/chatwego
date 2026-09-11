@@ -15,7 +15,6 @@ import (
 	"github.com/Napam/chatwego/db/generated/sqlc"
 	"github.com/Napam/chatwego/lib/agent"
 	ds "github.com/Napam/chatwego/lib/datastar"
-	"github.com/Napam/chatwego/lib/session"
 	"github.com/Napam/chatwego/web/root"
 	"github.com/google/uuid"
 )
@@ -44,10 +43,8 @@ func (h *Handlers) SendPrompt(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	identityID := session.IdentityFromContext(r.Context())
 	sessionID, isNewSession, err := h.resolveSession(
 		r.Context(),
-		identityID,
 		signals.SessionID,
 		message,
 	)
@@ -62,7 +59,7 @@ func (h *Handlers) SendPrompt(w http.ResponseWriter, r *http.Request) {
 	sse := ds.NewSSE(w, r)
 
 	if isNewSession {
-		if err := h.writeNewSessionPartials(r.Context(), sse, identityID, sessionID); err != nil {
+		if err := h.writeNewSessionPartials(r.Context(), sse, sessionID); err != nil {
 			h.logger.Error("Failed to write new session partials", slog.Any("error", err))
 			return
 		}
@@ -99,25 +96,21 @@ func (h *Handlers) SendPrompt(w http.ResponseWriter, r *http.Request) {
 }
 
 // resolveSession returns the session to use for this prompt. It creates a new
-// one when sessionID is empty or not owned by identityID.
+// one when sessionID is empty or unknown.
 func (h *Handlers) resolveSession(
 	ctx context.Context,
-	identityID, sessionID, message string,
+	sessionID, message string,
 ) (id string, isNew bool, err error) {
 	if sessionID != "" {
-		chatSession, err := h.queries.GetSessionById(ctx, sessionID)
-		// A session owned by another identity is treated as unknown: start a
-		// fresh one rather than writing into it.
-		if err == nil && chatSession.IdentityID == identityID {
+		if _, err := h.queries.GetSessionById(ctx, sessionID); err == nil {
 			return sessionID, false, nil
 		}
 	}
 
 	id = uuid.New().String()
 	if _, err := h.queries.CreateChatSession(ctx, sqlc.CreateChatSessionParams{
-		ID:         id,
-		Title:      sql.NullString{String: truncateTitle(message), Valid: true},
-		IdentityID: identityID,
+		ID:    id,
+		Title: sql.NullString{String: truncateTitle(message), Valid: true},
 	}); err != nil {
 		return "", true, fmt.Errorf("create chat session: %w", err)
 	}
@@ -191,9 +184,9 @@ func nullableString(s string) sql.NullString {
 func (h *Handlers) writeNewSessionPartials(
 	ctx context.Context,
 	sse *ds.SSE,
-	identityID, sessionID string,
+	sessionID string,
 ) error {
-	chatSessions, err := h.queries.GetSessionsByOwner(ctx, identityID)
+	chatSessions, err := h.queries.ListChatSessions(ctx)
 	if err != nil {
 		h.logger.Error("Failed to get sessions", slog.Any("error", err))
 	}

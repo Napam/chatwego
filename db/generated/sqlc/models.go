@@ -22,51 +22,9 @@ type ChatMessage struct {
 }
 
 type ChatSession struct {
-	ID         string
-	IdentityID string
-	Title      sql.NullString
-	Metadata   sql.NullString
-	CreatedAt  string
-	UpdatedAt  string
-}
-
-type Identity struct {
-	ID          string
-	FirstName   sql.NullString
-	LastName    sql.NullString
-	Email       string
-	Type        string
-	Description sql.NullString
-	CreatedAt   string
-	UpdatedAt   sql.NullString
-	DisabledAt  sql.NullString
-}
-
-type IdentityRole struct {
-	ID         int64
-	IdentityID string
-	Role       string
-	GrantedAt  string
-	RevokedAt  sql.NullString
-}
-
-type Login struct {
-	ID            string
-	IdentityID    string
-	ExternalID    string
-	Source        string
-	RawSourceData sql.NullString
-	LastLoginAt   sql.NullString
-	LinkedAt      string
-}
-
-type SessionToken struct {
-	Hash       []byte
-	LoginID    string
-	IdentityID string
-	LastUsedAt sql.NullString
-	ExpiresAt  string
-	CreatedAt  string
-	UpdatedAt  sql.NullString
-	RevokedAt  sql.NullString
+	ID        string
+	Title     sql.NullString
+	Metadata  sql.NullString
+	CreatedAt string
+	UpdatedAt string
 }

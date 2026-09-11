@@ -4,22 +4,19 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/Napam/chatwego/lib/session"
 	"github.com/Napam/chatwego/web/root"
 	"github.com/go-chi/chi/v5"
 )
 
 func (h *Handlers) GetChat(w http.ResponseWriter, r *http.Request) {
-	identityID := session.IdentityFromContext(r.Context())
 	sessionID := chi.URLParam(r, "sessionID")
 
-	chatSession, err := h.queries.GetSessionById(r.Context(), sessionID)
-	if err != nil || chatSession.IdentityID != identityID {
+	if _, err := h.queries.GetSessionById(r.Context(), sessionID); err != nil {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 
-	chatSessions, err := h.queries.GetSessionsByOwner(r.Context(), identityID)
+	chatSessions, err := h.queries.ListChatSessions(r.Context())
 	if err != nil {
 		h.logger.Error("Failed to get sessions", slog.Any("error", err))
 	}
