@@ -40,9 +40,8 @@ const (
 // the server which session a prompt belongs to; the server patches it when
 // the first prompt creates a session. draft is the composer text.
 // hasMessages hides the welcome placeholder once a conversation starts.
-// Everything else the page needs is client-only: the sidebar and breakpoint
-// signals are created by the page's data-init, and the leading underscore
-// keeps them out of request payloads.
+// Sidebar layout state is not here: chat-sidebar owns it. _controller is set
+// inline on <body>; the leading underscore keeps it out of request payloads.
 type Signals struct {
 	SessionID   string `json:"sessionId"`
 	Draft       string `json:"draft"`
@@ -74,101 +73,66 @@ templ RootPage(currentSessionID string, chatSessions []sqlc.ChatSession, message
 			class="h-dvh w-dvw overflow-hidden bg-white text-gray-700 dark:bg-neutral-900 dark:text-neutral-300"
 			data-signals={ signalsJSON }
 			data-signals:_controller="new AbortController()"
-			data-init="
-				$_mdQuery = '(min-width: 768px)';
-				$_sidebarWide = window.matchMedia($_mdQuery).matches;
-				$_sidebarOpen = false;
-				$_sidebarCollapsed = false;
-				$_sidebarAnimating = false;
-			"
-			data-on:resize__window="
-				const wide = window.matchMedia($_mdQuery).matches;
-				if (wide === $_sidebarWide) return;
-				$_sidebarWide = wide;
-				// Close the mobile drawer on the way in to md. The desktop column
-				// is md:translate-x-0, so this has no visual effect. The drawer
-				// transition is only on during a user toggle, so the transform
-				// change at the breakpoint cannot animate.
-				if (wide) $_sidebarOpen = false;
-			"
 		>
 			<div class="flex">
-				<!-- Scrim: tapping it closes the mobile drawer. The desktop sidebar
-				     pushes the content, so it needs no scrim. -->
-				<div
-					class="fixed inset-0 z-30 bg-black/40 md:hidden"
-					style="display: none"
-					data-show="$_sidebarOpen"
-					data-on:click="
-						$_sidebarAnimating = true;
-						$_sidebarOpen = false;
-						setTimeout(() => $_sidebarAnimating = false, 250);
-					"
-					aria-hidden="true"
-				></div>
-				<!-- Sidebar: off-canvas drawer below md, in-flow column at md and up.
-				     _sidebarOpen is the mobile drawer and _sidebarCollapsed is the
-				     desktop collapse. Each changes only on the side of the breakpoint
-				     where it has no visual effect, and md:translate-x-0 pins the
-				     desktop column in flow. The transform transition exists only
-				     while _sidebarAnimating is set by a user toggle, so the transform
-				     change at a breakpoint has no transition to run. -->
-				<aside
-					id="sidebar"
-					class="dark:bg-neutral-850 fixed inset-y-0 left-0 z-40 flex h-dvh w-72 shrink-0 -translate-x-full flex-col overflow-hidden bg-gray-50 font-bold md:static md:translate-x-0 md:transition-none"
-					data-class="{ 'translate-x-0': $_sidebarOpen, 'md:w-0': $_sidebarCollapsed, 'md:invisible': $_sidebarCollapsed, 'transition-transform': $_sidebarAnimating, 'duration-200': $_sidebarAnimating, 'ease-in-out': $_sidebarAnimating }"
-				>
-					<div class="flex h-full w-72 shrink-0 flex-col">
-						<div class="dark:border-neutral-750 flex h-12 shrink-0 items-center justify-between border-b border-gray-200 px-4">
-							Chats
-							<div class="flex items-center gap-3">
-								<a
-									href="/admin"
-									class="text-xs font-normal text-gray-400 hover:underline dark:text-neutral-500"
-								>
-									Admin
-								</a>
-								<theme-button></theme-button>
-								<button
-									type="button"
-									aria-label="Close chat list"
-									class="dark:text-neutral-400 dark:hover:bg-neutral-700 dark:active:bg-neutral-600 flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-gray-500 hover:bg-gray-200 active:bg-gray-300 md:hidden"
-									data-on:click="
-										$_sidebarAnimating = true;
-										$_sidebarOpen = false;
-										setTimeout(() => $_sidebarAnimating = false, 250);
-									"
-								>
-									<x-icon svgClass="size-5"></x-icon>
-								</button>
+				<!-- Sidebar behavior (drawer below md, collapsible column at md and
+				     up) lives in the chat-sidebar element. The base classes here are
+				     the closed, uncollapsed state; the element toggles the rest. -->
+				<chat-sidebar class="contents">
+					<!-- Scrim: tapping it closes the mobile drawer. The desktop
+					     sidebar pushes the content, so it needs no scrim. -->
+					<div
+						data-sidebar-scrim
+						data-sidebar-close
+						class="fixed inset-0 z-30 bg-black/40 md:hidden"
+						hidden
+						aria-hidden="true"
+					></div>
+					<aside
+						id="sidebar"
+						data-sidebar-drawer
+						class="dark:bg-neutral-850 fixed inset-y-0 left-0 z-40 flex h-dvh w-72 shrink-0 -translate-x-full flex-col overflow-hidden bg-gray-50 font-bold md:static md:translate-x-0 md:transition-none"
+					>
+						<div class="flex h-full w-72 shrink-0 flex-col">
+							<div class="dark:border-neutral-750 flex h-12 shrink-0 items-center justify-between border-b border-gray-200 px-4">
+								Chats
+								<div class="flex items-center gap-3">
+									<a
+										href="/admin"
+										class="text-xs font-normal text-gray-400 hover:underline dark:text-neutral-500"
+									>
+										Admin
+									</a>
+									<theme-button></theme-button>
+									<button
+										type="button"
+										aria-label="Close chat list"
+										class="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-gray-500 hover:bg-gray-200 active:bg-gray-300 md:hidden dark:text-neutral-400 dark:hover:bg-neutral-700 dark:active:bg-neutral-600"
+										data-sidebar-close
+									>
+										<x-icon svgClass="size-5"></x-icon>
+									</button>
+								</div>
+							</div>
+							<div class="scrollbar-thin scrollbar-gutter-stable scrollbar-thumb-black/25 scrollbar-track-transparent dark:scrollbar-thumb-white/20 min-h-0 flex-1 overflow-y-auto overscroll-contain">
+								@SessionList(currentSessionID, chatSessions)
 							</div>
 						</div>
-						<div class="scrollbar-thin scrollbar-gutter-stable scrollbar-thumb-black/25 scrollbar-track-transparent dark:scrollbar-thumb-white/20 min-h-0 flex-1 overflow-y-auto overscroll-contain">
-							@SessionList(currentSessionID, chatSessions)
-						</div>
-					</div>
-				</aside>
+					</aside>
+				</chat-sidebar>
 				<main class="relative flex h-dvh w-full flex-col items-center justify-between p-3 pb-4 md:p-4 md:pb-8 dark:bg-neutral-900">
 					<!-- Top bar: floats over the messages at every width so they scroll
 					     under it, with a faded edge instead of a hard clip. Its button
 					     toggles the sidebar at every size. -->
 					<header class="pointer-events-none absolute inset-x-0 top-0 z-20">
 						<div class="absolute inset-x-0 top-0 h-12 bg-white/90 backdrop-blur-sm dark:bg-neutral-900/90"></div>
-						<div class="absolute inset-x-0 top-12 h-6 bg-gradient-to-b from-white to-transparent dark:from-neutral-900"></div>
+						<div class="absolute inset-x-0 top-12 h-6 bg-linear-to-b from-white to-transparent dark:from-neutral-900"></div>
 						<div class="pointer-events-auto relative flex w-full items-center px-3 py-3">
 							<button
 								type="button"
 								aria-label="Toggle chat list"
 								class="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 active:bg-gray-200 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:active:bg-neutral-700"
-								data-on:click="
-									if ($_sidebarWide) {
-										$_sidebarCollapsed = !$_sidebarCollapsed;
-									} else {
-										$_sidebarAnimating = true;
-										$_sidebarOpen = !$_sidebarOpen;
-										setTimeout(() => $_sidebarAnimating = false, 250);
-									}
-								"
+								data-sidebar-toggle
 							>
 								<menu-icon svgClass="size-5"></menu-icon>
 							</button>
@@ -215,7 +179,7 @@ templ RootPage(currentSessionID string, chatSessions []sqlc.ChatSession, message
 							$_controller = new AbortController();
 							@post('/send-prompt', { requestCancellation: $_controller, retry: 'never' });
 							$draft = '';
-							!window.matchMedia($_mdQuery).matches && ($_sidebarOpen = false);
+							document.querySelector('chat-sidebar')?.close();
 						"
 					>
 						<div class="relative w-full">
