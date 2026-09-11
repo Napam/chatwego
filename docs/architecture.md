@@ -180,6 +180,11 @@ History is ordered by `id ASC`, not `created_at`: `id` is a monotonic rowid,
 while `created_at` has one-second resolution and can order same-second rows
 nondeterministically.
 
+One reply is persisted in a single transaction, the assistant row and its tool
+rows together, so a partial write can't leave tool results without their
+assistant message. A round with no content, reasoning, or tool calls (a stream
+that failed or was aborted before any output) is not persisted.
+
 ## Invariants and gotchas
 
 - `ReadSignals` must run before `NewSSE` on POST requests.
@@ -191,3 +196,6 @@ nondeterministically.
   patching a missing selector logs a "no targets found" warning.
 - There is no `WriteTimeout` on the HTTP server: an SSE reply stays open for the
   whole model response.
+- SQLite runs with `foreign_keys`, `busy_timeout(5000)`, and WAL enabled through
+  the DSN (`openSQLite` in `cmd/serve/main.go`); foreign keys are off by default
+  in SQLite, so the schema's `ON DELETE CASCADE` only works because of this.

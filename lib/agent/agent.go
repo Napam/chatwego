@@ -88,8 +88,8 @@ type ToolCallRecord struct {
 	Result string
 }
 
-// Round: one request/response round. ToolCalls populated if it called tools,
-// empty if it produced the final text reply.
+// Round: one request/response round. ToolCalls is populated when the model
+// called tools; a round can also carry reply text alongside those calls.
 type Round struct {
 	Content   string
 	Reasoning string
@@ -141,10 +141,11 @@ type ReplyHandlers struct {
 }
 
 // StreamReply sends session history to the LLM and streams the reply through
-// h (see ReplyHandlers). Each round (see Round) is a separate request/
-// response round-trip, persisted as its own row. Returns every round --
-// including tool-calling ones -- so the caller can persist the full exchange,
-// plus an error if the stream failed or a handler errored.
+// h (see ReplyHandlers). Each round (see Round) is a separate request/response
+// round-trip, persisted as its own assistant row plus tool-result rows.
+// Returns every round -- including tool-calling ones -- so the caller can
+// persist the full exchange, plus an error if the stream failed or a handler
+// errored.
 //
 // Tool calls run locally; results feed back for another round. After
 // maxToolRounds, tools are dropped and stopCallingToolsNotice is sent,
@@ -306,6 +307,8 @@ func reasoningDelta(delta openai.ChatCompletionChunkChoiceDelta) string {
 	return content
 }
 
+// buildMessages turns stored rows into the OpenAI message array, system prompt
+// first, in row order.
 func buildMessages(history []sqlc.ChatMessage) []openai.ChatCompletionMessageParamUnion {
 	messages := make([]openai.ChatCompletionMessageParamUnion, 0, len(history)+1)
 	messages = append(messages, openai.SystemMessage(systemPrompt))

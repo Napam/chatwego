@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/Napam/chatwego"
@@ -40,9 +41,9 @@ func run(logger *slog.Logger) error {
 		logger.Info("Initializing chatwego", slog.String("cwd", cwd))
 	}
 
-	dbConn, err := sql.Open("sqlite", env.Vars.DBPath)
+	dbConn, err := openSQLite(env.Vars.DBPath)
 	if err != nil {
-		return fmt.Errorf("open database: %w", err)
+		return err
 	}
 	defer func() {
 		if err := dbConn.Close(); err != nil {
@@ -92,6 +93,28 @@ func run(logger *slog.Logger) error {
 	return nil
 }
 
+// sqlitePragmas configure every connection: foreign keys (off by default in
+// SQLite), a busy timeout so concurrent writers wait instead of failing
+// immediately, and WAL plus NORMAL sync so readers don't block the writer.
+const sqlitePragmas = "_pragma=busy_timeout(5000)" +
+	"&_pragma=foreign_keys(1)" +
+	"&_pragma=journal_mode(WAL)" +
+	"&_pragma=synchronous(NORMAL)"
+
+// openSQLite opens the database. The pragmas travel in the DSN so they apply
+// to every pooled connection, not just the first.
+func openSQLite(path string) (*sql.DB, error) {
+	separator := "?"
+	if strings.Contains(path, "?") {
+		separator = "&"
+	}
+	dbConn, err := sql.Open("sqlite", path+separator+sqlitePragmas)
+	if err != nil {
+		return nil, fmt.Errorf("open database: %w", err)
+	}
+	return dbConn, nil
+}
+
 func SetupRouter(logger *slog.Logger, dbConn *sql.DB, chatAgent *agent.Agent) *chi.Mux {
 	router := chi.NewRouter()
 
@@ -117,7 +140,7 @@ func SetupRouter(logger *slog.Logger, dbConn *sql.DB, chatAgent *agent.Agent) *c
 
 	chatwego.SetupStatic(router)
 
-	h := handlers.New(logger, dbQueries, chatAgent)
+	h := handlers.New(logger, dbConn, dbQueries, chatAgent)
 
 	// === ROUTES ===
 

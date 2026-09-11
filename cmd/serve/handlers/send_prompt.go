@@ -104,8 +104,12 @@ func (h *Handlers) resolveSession(
 	sessionID, message string,
 ) (id string, isNew bool, err error) {
 	if sessionID != "" {
-		if _, err := h.queries.GetSessionById(ctx, sessionID); err == nil {
+		_, err := h.queries.GetSessionById(ctx, sessionID)
+		switch {
+		case err == nil:
 			return sessionID, false, nil
+		case !errors.Is(err, sql.ErrNoRows):
+			return "", false, fmt.Errorf("get chat session: %w", err)
 		}
 	}
 
@@ -133,13 +137,28 @@ func (h *Handlers) storeMessage(ctx context.Context, sessionID, msgType, content
 	}
 }
 
-// storeRounds persists every round of an assistant reply: the assistant
-// message itself (content, reasoning, and -- if it called tools -- the tool
-// calls as a JSON blob), followed by one "tool" row per call result, so
-// future replies in this session can be reconstructed with full tool-call
-// context (see agent.buildMessages).
+// storeRounds persists each round as an assistant row plus one tool-result
+// row per call, all in a single transaction so a partial write can't leave
+// orphan tool results. Rounds with no content, reasoning, or tool calls are
+// skipped rather than stored as empty messages.
 func (h *Handlers) storeRounds(ctx context.Context, sessionID string, rounds []agent.Round) {
+	tx, err := h.db.BeginTx(ctx, nil)
+	if err != nil {
+		h.logger.Error("Failed to begin message transaction", slog.Any("error", err))
+		return
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+			h.logger.Error("Failed to roll back message transaction", slog.Any("error", err))
+		}
+	}()
+
+	queries := h.queries.WithTx(tx)
 	for _, round := range rounds {
+		if round.Content == "" && round.Reasoning == "" && len(round.ToolCalls) == 0 {
+			continue
+		}
+
 		var toolCallsJSON sql.NullString
 		if len(round.ToolCalls) > 0 {
 			stored := make([]agent.StoredToolCall, len(round.ToolCalls))
@@ -149,12 +168,12 @@ func (h *Handlers) storeRounds(ctx context.Context, sessionID string, rounds []a
 			data, err := json.Marshal(stored)
 			if err != nil {
 				h.logger.Error("Failed to marshal tool calls", slog.Any("error", err))
-			} else {
-				toolCallsJSON = nullableString(string(data))
+				return
 			}
+			toolCallsJSON = nullableString(string(data))
 		}
 
-		if _, err := h.queries.CreateChatMessage(ctx, sqlc.CreateChatMessageParams{
+		if _, err := queries.CreateChatMessage(ctx, sqlc.CreateChatMessageParams{
 			SessionID: sessionID,
 			Type:      "assistant",
 			Content:   nullableString(round.Content),
@@ -162,18 +181,24 @@ func (h *Handlers) storeRounds(ctx context.Context, sessionID string, rounds []a
 			ToolCalls: toolCallsJSON,
 		}); err != nil {
 			h.logger.Error("Failed to store assistant message", slog.Any("error", err))
+			return
 		}
 
 		for _, toolCall := range round.ToolCalls {
-			if _, err := h.queries.CreateChatMessage(ctx, sqlc.CreateChatMessageParams{
+			if _, err := queries.CreateChatMessage(ctx, sqlc.CreateChatMessageParams{
 				SessionID:  sessionID,
 				Type:       "tool",
 				Content:    nullableString(toolCall.Result),
 				ToolCallID: sql.NullString{String: toolCall.ID, Valid: true},
 			}); err != nil {
 				h.logger.Error("Failed to store tool message", slog.Any("error", err))
+				return
 			}
 		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		h.logger.Error("Failed to commit message transaction", slog.Any("error", err))
 	}
 }
 
@@ -181,8 +206,8 @@ func nullableString(s string) sql.NullString {
 	return sql.NullString{String: s, Valid: s != ""}
 }
 
-// writeNewSessionPartials pushes the sidebar, the sessionId signal, and a
-// URL replace that only apply the first time a session is created.
+// writeNewSessionPartials pushes the sidebar, the sessionId signal, and the
+// URL replace, all of which apply only when a session is first created.
 func (h *Handlers) writeNewSessionPartials(
 	ctx context.Context,
 	sse *ds.SSE,
@@ -190,7 +215,7 @@ func (h *Handlers) writeNewSessionPartials(
 ) error {
 	chatSessions, err := h.queries.ListChatSessions(ctx)
 	if err != nil {
-		h.logger.Error("Failed to get sessions", slog.Any("error", err))
+		return fmt.Errorf("list sessions: %w", err)
 	}
 	// Outer mode morphs the whole <ol> in place by id. Inner mode would nest
 	// the patched <ol> inside the existing one, duplicating the id.

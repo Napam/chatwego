@@ -11,39 +11,20 @@ CREATE TABLE chat_sessions (
 ===========================================================================
 TABLE: chat_messages
 ===========================================================================
-This is a "Multi-role table". LLM APIs (like OpenAI or Anthropic) require
-the entire conversation history to be passed as a single, chronological array
-of messages. By keeping all roles in one table, a simple ORDER BY created_at
-gives us the exact payload the API expects without complex JOINs.
+A "multi-role" table: system, user, assistant, and tool rows live together so
+the whole conversation comes back from one ordered query in the shape
+OpenAI-compatible chat APIs expect, with no JOINs.
 
-Column usage depends strictly on the 'role':
+`type` selects the role:
+- system    -- hidden instructions in `content`.
+- user      -- the prompt in `content`.
+- assistant -- reply text in `content` (often NULL when the round only calls
+               tools), requested calls as JSON in `tool_calls`, thinking
+               output in `reasoning`.
+- tool      -- the result in `content`, with `tool_call_id` linking it back
+               to the assistant call that requested it.
 
-1. role = 'system'
-- Purpose: System prompts or hidden instructions (e.g., "You are an agent").
-- Uses: `content` holds the instructions.
-- Nulls: `tool_calls` and `tool_call_id` must be NULL.
-
-2. role = 'user'
-- Purpose: The human's actual input.
-- Uses: `content` holds the user's prompt.
-- Nulls: `tool_calls` and `tool_call_id` must be NULL.
-
-3. role = 'assistant'
-- Purpose: The LLM's response. It can either speak OR call a tool.
-- Uses:
-- If speaking: `content` holds the text response.
-- If calling a tool: `content` is often NULL, and `tool_calls`
-holds a JSON array of the requested functions.
-- `reasoning` optionally holds the model's reasoning/thinking
-output for this round, if the model exposes any.
-- Nulls: `tool_call_id` must be NULL.
-
-4. role = 'tool'
-- Purpose: Your application returning the result of a tool execution.
-- Uses: `content` holds the raw result (text or JSON from the API).
-`tool_call_id` holds the unique string linking this result
-back to the assistant's original request.
-- Nulls: `tool_calls` must be NULL.
+Unused columns are NULL by convention; the schema does not enforce that.
 ===========================================================================
 */
 CREATE TABLE chat_messages (
