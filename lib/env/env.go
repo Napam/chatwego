@@ -14,6 +14,14 @@ type Env = struct {
 	LiveReloadHost string
 	// For logging purposes only. Not needed in production, so they're optional.
 	LiveReloadPort string
+	// Chat model used for LLM completions. Defaults to "gpt-4o-mini".
+	OpenAIModel string
+	// Base URL of the OpenAI-compatible chat completions API. Defaults to
+	// "http://localhost:6700" (a local llama.cpp/llama-server instance) --
+	// point this at OpenAI's own API, or any other compatible server.
+	OpenAIBaseURL string
+	// Path to the sqlite database file. Defaults to "./data/sqlite.db".
+	DBPath string
 }
 
 var Vars *Env
@@ -26,6 +34,9 @@ func init() {
 		Port:             GetEnv("PORT", "8080"),
 		LiveReloadHost:   os.Getenv("LIVE_RELOAD_PROXY_HOST"),
 		LiveReloadPort:   os.Getenv("LIVE_RELOAD_PROXY_PORT"),
+		OpenAIModel:      GetEnv("OPENAI_MODEL", "gpt-4o-mini"),
+		OpenAIBaseURL:    GetEnv("OPENAI_BASE_URL", "http://localhost:6700"),
+		DBPath:           GetEnv("DB_PATH", "./data/sqlite.db"),
 	}
 }
 

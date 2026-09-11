@@ -8,7 +8,65 @@ import (
 	"database/sql"
 )
 
-type User struct {
-	ID   int64
-	Name sql.NullString
+type ChatMessage struct {
+	ID         int64
+	SessionID  string
+	Type       string
+	Content    sql.NullString
+	Reasoning  sql.NullString
+	ToolCalls  sql.NullString
+	ToolCallID sql.NullString
+	TokensUsed sql.NullInt64
+	Metadata   sql.NullString
+	CreatedAt  string
+}
+
+type ChatSession struct {
+	ID         string
+	IdentityID string
+	Title      sql.NullString
+	Metadata   sql.NullString
+	CreatedAt  string
+	UpdatedAt  string
+}
+
+type Identity struct {
+	ID          string
+	FirstName   sql.NullString
+	LastName    sql.NullString
+	Email       string
+	Type        string
+	Description sql.NullString
+	CreatedAt   string
+	UpdatedAt   sql.NullString
+	DisabledAt  sql.NullString
+}
+
+type IdentityRole struct {
+	ID         int64
+	IdentityID string
+	Role       string
+	GrantedAt  string
+	RevokedAt  sql.NullString
+}
+
+type Login struct {
+	ID            string
+	IdentityID    string
+	ExternalID    string
+	Source        string
+	RawSourceData sql.NullString
+	LastLoginAt   sql.NullString
+	LinkedAt      string
+}
+
+type SessionToken struct {
+	Hash       []byte
+	LoginID    string
+	IdentityID string
+	LastUsedAt sql.NullString
+	ExpiresAt  string
+	CreatedAt  string
+	UpdatedAt  sql.NullString
+	RevokedAt  sql.NullString
 }

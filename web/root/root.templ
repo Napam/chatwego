@@ -1,132 +1,354 @@
 package root
 
 import (
+	"encoding/json"
+
 	"github.com/Napam/chatwego"
 	"github.com/Napam/chatwego/db/generated/sqlc"
-	"strconv"
+	"github.com/Napam/chatwego/lib/agent"
+	"github.com/Napam/chatwego/lib/htmlclass"
+	"github.com/Oudwins/tailwind-merge-go/pkg/twmerge"
 )
 
-templ RootPage(users []sqlc.User, editID int64) {
-	{{ techAnchorClass := "text-primary-500 dark:text-primary-400 font-bold hover:underline dark:font-medium" }}
-	{{ techUndertextClass := "text-gray-500 dark:text-neutral-500" }}
-	<html class="dark">
+// storedToolCalls reconstructs an assistant message's tool calls (and their
+// results, from the "tool" rows looked up in results by tool_call_id) for
+// display, from the JSON blob persisted in chat_messages.tool_calls.
+func storedToolCalls(msg sqlc.ChatMessage, results map[string]string) []agent.ToolCallRecord {
+	if !msg.ToolCalls.Valid {
+		return nil
+	}
+	var stored []agent.StoredToolCall
+	if err := json.Unmarshal([]byte(msg.ToolCalls.String), &stored); err != nil {
+		return nil
+	}
+	records := make([]agent.ToolCallRecord, len(stored))
+	for i, tc := range stored {
+		records[i] = agent.ToolCallRecord{StoredToolCall: tc, Result: results[tc.ID]}
+	}
+	return records
+}
+
+const (
+	ChatMessagesID = "chat-messages"
+	SessionListID  = "session-list"
+	StopButtonID   = "stop-button"
+)
+
+// Signals is the reactive state the root page starts with. sessionId tells
+// the server which session a prompt belongs to; the server patches it when
+// the first prompt creates a session. draft is the composer text.
+// hasMessages hides the welcome placeholder once a conversation starts.
+type Signals struct {
+	SessionID   string `json:"sessionId"`
+	Draft       string `json:"draft"`
+	HasMessages bool   `json:"hasMessages"`
+}
+
+templ RootPage(currentSessionID string, chatSessions []sqlc.ChatSession, messages []sqlc.ChatMessage) {
+	{{
+		signalsJSON, _ := templ.JSONString(Signals{
+			SessionID:   currentSessionID,
+			HasMessages: len(messages) > 0,
+		})
+	}}
+	<html>
 		<head>
 			<title>ChatWeGo</title>
 			<link rel="stylesheet" id="tailwindcss" href={ chatwego.StaticRootPath("static/tailwind.css") }/>
 			<script src={ chatwego.StaticRootPath("static/bundle.js") }></script>
-			<script defer src={ chatwego.StaticRootPath("static/page-files/root/root.js") }></script>
+			<script type="module" src={ chatwego.StaticRootPath("static/assets/vendor/datastar.js") }></script>
 		</head>
 		<body
-			class="min-h-screen bg-gray-50 font-sans text-gray-700 dark:bg-neutral-900 dark:text-neutral-300"
+			class="h-dvh w-dvw bg-white text-gray-700 dark:bg-neutral-900 dark:text-neutral-300"
+			data-signals={ signalsJSON }
+			data-signals:_controller="new AbortController()"
 		>
-			<header class="sticky top-0 z-10 border-b border-gray-200 bg-white/80 backdrop-blur-sm dark:border-neutral-800 dark:bg-neutral-900/80">
-				<div class="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
-					<h1 class="text-2xl font-bold tracking-tight text-gray-700 dark:text-neutral-200">ChatWeGo</h1>
-					<theme-button></theme-button>
-				</div>
-			</header>
-			<main class="mx-auto max-w-3xl px-6 py-10">
-				<section class="mb-12">
-					<div class="mb-8 flex items-center justify-between gap-4">
-						<p class="text-xl leading-relaxed text-gray-600 dark:text-neutral-400">
-							A starter template for building fullstack SSR-first web applications
-						</p>
-						<div class="rounded-full p-8 dark:bg-neutral-700 dark:mask-[radial-gradient(circle_at_center,black_20%,transparent_85%,transparent_100%)]">
-							<img class="h-24" src={ chatwego.StaticRootPath("static/assets/gopher-running-filled-white.svg") }/>
+			<div class="flex">
+				<aside class="dark:bg-neutral-850 flex h-dvh w-72 min-w-0 shrink-0 flex-col bg-gray-50 font-bold">
+					<div class="dark:border-neutral-750 flex h-12 shrink-0 items-center justify-between border-b border-gray-200 px-4">
+						Chats
+						<div class="flex items-center gap-3">
+							<a
+								href="/admin"
+								class="text-xs font-normal text-gray-400 hover:underline dark:text-neutral-500"
+							>
+								Admin
+							</a>
+							<theme-button></theme-button>
 						</div>
 					</div>
-					<dl class="grid grid-cols-2 gap-x-4 gap-y-6 text-sm text-gray-600 dark:text-neutral-400">
-						<div>
-							<dt class="mb-1"><a class={ techAnchorClass } href="https://go.dev">Go</a> - backend language</dt>
-							<dd class={ techUndertextClass }>
-								<a class="hover:underline" href="https://gitlab.com/cznic/sqlite">modernc.org/sqlite</a> - pure Go SQLite driver
-								<br/>
-								<a class="hover:underline" href="https://github.com/go-chi/chi">go-chi</a> - HTTP router
-								<br/>
-								<a class="hover:underline" href="https://github.com/pressly/goose">goose</a> - database migrations
-								<br/>
-								<a class="hover:underline" href="https://sqlc.dev/">sqlc</a> - type-safe SQL query codegen
-							</dd>
+					<div class="scrollbar-thin scrollbar-gutter-stable scrollbar-thumb-black/25 scrollbar-track-transparent dark:scrollbar-thumb-white/20 min-h-0 flex-1 overflow-y-auto">
+						@SessionList(currentSessionID, chatSessions)
+					</div>
+				</aside>
+				<main class="flex h-dvh w-full flex-col items-center justify-between p-4 pb-8 dark:bg-neutral-900">
+					<div
+						id={ ChatMessagesID }
+						class="scrollbar-thin scrollbar-gutter-stable scrollbar-thumb-black/25 scrollbar-track-transparent dark:scrollbar-thumb-white/20 mb-8 flex w-full max-w-220 flex-1 flex-col gap-8 overflow-y-auto"
+					>
+						if currentSessionID == "" {
+							@WelcomePlaceholder()
+						}
+						{{
+							// "tool" rows fold into the preceding assistant round's tool-calls display.
+							toolResults := make(map[string]string, len(messages))
+							for _, msg := range messages {
+								if msg.Type == "tool" {
+									toolResults[msg.ToolCallID.String] = msg.Content.String
+								}
+							}
+						}}
+						for _, msg := range messages {
+							switch msg.Type {
+								case "user":
+									@ChatContainer(MessageBubble{Message: msg.Content.String, ChatType: ChatTypeQuestion})
+								case "assistant":
+									@ChatContainer(MessageBubble{
+										Message:   msg.Content.String,
+										ChatType:  ChatTypeAnswer,
+										Reasoning: msg.Reasoning.String,
+										ToolCalls: storedToolCalls(msg, toolResults),
+									})
+							}
+						}
+					</div>
+					<script defer src={ chatwego.StaticRootPath("static/page-files/root/root.js") }></script>
+					<form
+						class="flex w-full max-w-xl gap-2"
+						data-on:submit="
+							window.answering = true;
+							$_controller.abort();
+							$_controller = new AbortController();
+							@post('/send-prompt', { requestCancellation: $_controller });
+							$draft = '';
+						"
+					>
+						<div class="relative w-full">
+							<textarea
+								id="chat-textarea"
+								name="textarea"
+								class={ htmlclass.Join(
+								"w-full rounded-xl p-4 pr-12 border border-gray-300",
+								"dark:bg-neutral-800 dark:border-neutral-600",
+								"focus:outline-primary-400 focus:outline-2 focus:outline-solid",
+							) }
+								placeholder="Message ChatWeGo..."
+								data-bind="draft"
+								data-on:keydown="evt.key === 'Enter' && !evt.shiftKey && !evt.isComposing && (evt.preventDefault(), !window.answering && $draft.trim() && el.form.requestSubmit())"
+							></textarea>
+							<button
+								type="button"
+								id={ StopButtonID }
+								title="Stop generating"
+								aria-label="Stop generating"
+								class={ htmlclass.Join(
+								"hidden absolute right-3 bottom-3 size-8 cursor-pointer items-center justify-center rounded-lg",
+								"text-gray-500 hover:bg-gray-100 active:bg-gray-200",
+								"dark:text-neutral-400 dark:hover:bg-neutral-700 dark:active:bg-neutral-600",
+							) }
+								data-on:click="window.answering && ($_controller.abort(), document.getElementById('chat-textarea')?.focus())"
+							>
+								<span class="block size-3 rounded-xs bg-current"></span>
+							</button>
 						</div>
-						<div>
-							<dt class="mb-1"><a class={ techAnchorClass } href="https://templ.guide">Templ</a> - HTML templating</dt>
-							<dd class={ techUndertextClass }>Type-safe HTML - catches missing variables and bad nesting at compile time</dd>
-						</div>
-						<div>
-							<dt class="mb-1"><a class={ techAnchorClass } href="https://tailwindcss.com/">TailwindCSS</a> - CSS utility classes</dt>
-							<dd class={ techUndertextClass }>No custom CSS files - responsive, dark mode, and design system out of the box</dd>
-						</div>
-						<div>
-							<dt class="mb-1"><a class={ techAnchorClass } href="https://bun.com/">Bun</a> - web asset bundling</dt>
-							<dd class={ techUndertextClass }>Fast all-in-one JS runtime - replaces webpack, rollup, and esbuild</dd>
-						</div>
-						<div>
-							<dt class="mb-1"><a class={ techAnchorClass } href="https://lit.dev/">Lit</a> - web components</dt>
-							<dd class={ techUndertextClass }>Custom <code class="text-xs">StyledLitElement</code> base class enables shadow DOM components to share your Tailwind stylesheet</dd>
-						</div>
-					</dl>
-				</section>
-				@ExampleCRUDPart(users, editID)
-			</main>
+					</form>
+				</main>
+			</div>
 		</body>
 	</html>
 }
 
-templ ExampleCRUDPart(users []sqlc.User, editID int64) {
-	<section class="flex flex-col gap-4 rounded-xs border border-gray-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800">
-		<div class="flex items-baseline justify-between">
-			<h2 class="text-sm text-gray-500 dark:text-neutral-400">Example CRUD - User registry</h2>
-		</div>
-		<p class="text-xs text-gray-400 dark:text-neutral-500">
-			Uses <code class="rounded bg-gray-100 px-1 py-0.5 dark:bg-neutral-900">&lt;input-component&gt;</code> and
-			<code class="rounded bg-gray-100 px-1 py-0.5 dark:bg-neutral-900">&lt;button-component&gt;</code> inside native HTML forms.
-			Each form POSTs and the server redirects back.
+templ SessionList(currentSessionID string, chatSessions []sqlc.ChatSession) {
+	{{
+		sessionsLiClasses := htmlclass.Join(
+			"w-full cursor-pointer truncate rounded-sm text-sm font-normal",
+			"hover:bg-gray-200 dark:hover:bg-neutral-700",
+		)
+		sessionsLinkClasses := "block truncate px-2 py-2"
+	}}
+	<ol class="flex flex-col gap-1 p-2" id={ SessionListID }>
+		<li class={ sessionsLiClasses }>
+			<a class={ sessionsLinkClasses } href="/">+ New</a>
+		</li>
+		for _, sess := range chatSessions {
+			if sess.ID == currentSessionID {
+				<li class={ twmerge.Merge(sessionsLiClasses, sessionsLinkClasses, "bg-gray-200 font-medium dark:bg-neutral-750") }>
+					{ sess.Title.String }
+				</li>
+			} else {
+				<li class={ sessionsLiClasses }>
+					<a class={ sessionsLinkClasses } href={ templ.URL("/chats/" + sess.ID) }>{ sess.Title.String }</a>
+				</li>
+			}
+		}
+	</ol>
+}
+
+templ WelcomePlaceholder() {
+	{{
+		suggestions := []string{
+			"Write me a long story that showcases markdown rendering",
+			"Show me a code snippet with syntax highlighting",
+			"Give me a markdown table comparing two things",
+			"Make me a checklist with a few tasks",
+		}
+	}}
+	<div
+		id="welcome-placeholder"
+		class="flex h-full flex-col items-center justify-center gap-3 text-center font-normal"
+		data-show="!$hasMessages"
+	>
+		<h1 class="text-xl font-semibold text-gray-800 dark:text-neutral-200">
+			What can I help you with?
+		</h1>
+		<p class="max-w-sm text-sm text-gray-500 dark:text-neutral-400">
+			Ask me anything, or try one of these to get started.
 		</p>
-		<form method="post" action="/users" class="flex items-end gap-2">
-			<input-component name="name" placeholder="New user name" class="grow"></input-component>
-			<button-component type="submit" buttonClass="font-normal">Add +</button-component>
-		</form>
-		<table class="w-full text-sm">
-			<thead class="border-b border-gray-200 dark:border-neutral-700">
-				<tr class="text-gray-500 dark:text-neutral-500">
-					<th class="py-1 pr-4 text-left font-normal">ID</th>
-					<th class="py-1 text-left font-normal">Name</th>
-					<th></th>
-				</tr>
-			</thead>
-			<tbody class="font-light text-gray-500 dark:text-neutral-400">
-				for _, user := range users {
-					{{ idStr := strconv.FormatInt(user.ID, 10) }}
-					{{ isEditing := editID == user.ID }}
-					<tr>
-						<td class="pt-2">{ idStr }</td>
-						if isEditing {
-							<td class="pt-2">
-								<form id={ "edit-" + idStr } method="post" action={ "/users/" + idStr + "/update" } class="flex items-center gap-2">
-									<input name="name" value={ user.Name.String } class="w-full border-b border-gray-300 bg-transparent text-sm text-gray-700 outline-none dark:border-neutral-500 dark:text-neutral-300"/>
-								</form>
-							</td>
-						} else {
-							<td class="pt-2">{ user.Name.String }</td>
-						}
-						<td class="flex justify-end gap-2 pt-2">
-							if isEditing {
-								<button type="submit" form={ "edit-" + idStr } class="text-primary-500 dark:text-primary-400 cursor-pointer text-xs">Save</button>
-								<a href="/" class="cursor-pointer text-xs text-gray-400 hover:text-gray-600 dark:text-neutral-500 dark:hover:text-neutral-300">Cancel</a>
-							} else {
-								<a href={ "/?edit=" + idStr } class="cursor-pointer">
-									<edit-icon svgClass="dark:hover:text-primary-500 hover:text-primary-500 size-4 text-gray-400 dark:text-neutral-500"></edit-icon>
-								</a>
-								<form method="post" action={ "/users/" + idStr + "/delete" } data-confirm="Delete this user?">
-									<button type="submit" class="cursor-pointer">
-										<trash-icon svgClass="size-4 text-gray-400 hover:text-red-600 dark:text-neutral-500 dark:hover:text-red-600"></trash-icon>
-									</button>
-								</form>
-							}
-						</td>
-					</tr>
+		<div class="mt-2 flex max-w-lg flex-wrap justify-center gap-2">
+			for _, suggestion := range suggestions {
+				<button
+					type="button"
+					class={
+						htmlclass.Join(
+							"cursor-pointer rounded-full border border-gray-200 px-3 py-1.5 text-sm text-gray-600",
+							"hover:bg-gray-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800",
+						),
+					}
+					data-on:click="$draft = el.textContent.trim(); document.getElementById('chat-textarea')?.focus()"
+				>
+					{ suggestion }
+				</button>
+			}
+		</div>
+	</div>
+}
+
+type ChatType int
+
+const (
+	ChatTypeAnswer = iota
+	ChatTypeQuestion
+)
+
+const (
+	reasoningSummaryClass = "flex w-fit cursor-pointer list-none items-center gap-1 text-sm text-gray-400 select-none hover:text-gray-600 dark:text-neutral-600 dark:hover:text-neutral-400 [&::-webkit-details-marker]:hidden"
+	// Tool-call args/results stay plain text (raw blobs, not prose), so the
+	// muted styling lives here; max-h-80 scrolls long traces in-block.
+	toolCallBodyClass = "my-1 max-h-80 overflow-y-auto border-l-2 border-gray-200 pl-3 text-sm whitespace-pre-wrap text-gray-400 dark:border-neutral-700 dark:text-neutral-500"
+	// Wrapper only: border, spacing, and the max-h-80 scroll cap -- the muted
+	// markdown-message inside supplies palette and size.
+	reasoningBodyClass = "my-1 max-h-80 overflow-y-auto border-l-2 border-gray-200 pl-3 dark:border-neutral-700"
+)
+
+// ReasoningBlock renders the collapsed-by-default "Thoughts" disclosure --
+// subtle since reasoning is a secondary detail -- auto-expanding when the
+// round produced no reply text. Reasoning is markdown via <markdown-message muted>.
+//
+// Live (reasoningID != ""): a hidden accumulator span (the SSE swap target,
+// escaped server-side so inert) feeds the markdown-message, which re-parses
+// as deltas land. The summary doubles as the round's loading indicator --
+// pulsing "Thinking ..." until reply text or tool calls arrive, then
+// "Thoughts" -- with open/hidden/label state driven by the RootPage script
+// (see syncThoughts).
+// Static: render directly, open set server-side, omitted if empty.
+templ ReasoningBlock(reasoning string, reasoningID string, open bool) {
+	if reasoningID != "" {
+		<details class="group" data-live-thoughts>
+			<summary class={ reasoningSummaryClass }>
+				<span class="inline-block text-base transition-transform group-open:rotate-90">▸</span>
+				<span data-thinking-label class="animate-pulse">Thinking ...</span>
+				<span data-thoughts-label class="hidden">Thoughts</span>
+			</summary>
+			<div class={ reasoningBodyClass } data-reasoning-body>
+				<span id={ reasoningID } class="hidden" data-reasoning-accumulator></span>
+				<markdown-message muted source={ reasoningID }></markdown-message>
+			</div>
+		</details>
+	} else if reasoning != "" {
+		<details open?={ open } class="group mb-2">
+			<summary class={ reasoningSummaryClass }>
+				<span class="inline-block text-base transition-transform group-open:rotate-90">▸</span>
+				Thoughts
+			</summary>
+			<div class={ reasoningBodyClass }>
+				<markdown-message muted>{ reasoning }</markdown-message>
+			</div>
+		</details>
+	}
+}
+
+// ToolCallEntries renders one subtle disclosure per tool call (arguments +
+// result). Live rounds inject the whole exchange at once -- tools run
+// synchronously, so there's nothing to stream; reloads render statically.
+templ ToolCallEntries(calls []agent.ToolCallRecord) {
+	for _, call := range calls {
+		<details class="group">
+			<summary class={ reasoningSummaryClass }>
+				<span class="inline-block text-base transition-transform group-open:rotate-90">▸</span>
+				{ "Called " + call.Name }
+			</summary>
+			<div class={ toolCallBodyClass }>
+				if call.Arguments != "" && call.Arguments != "{}" {
+					<div>Arguments: { call.Arguments }</div>
 				}
-			</tbody>
-		</table>
-	</section>
+				<div>Result: { call.Result }</div>
+			</div>
+		</details>
+	}
+}
+
+// ToolCallsBlock renders a round's tool calls, styled like ReasoningBlock.
+// Live (toolCallsID != ""): placeholder div, injected wholesale via one SSE
+// patch. Static: render calls directly, omitted if none.
+templ ToolCallsBlock(calls []agent.ToolCallRecord, toolCallsID string) {
+	if toolCallsID != "" {
+		<div id={ toolCallsID } class="mb-2 flex flex-col gap-1" data-tool-calls></div>
+	} else if len(calls) > 0 {
+		<div class="mb-2 flex flex-col gap-1">
+			@ToolCallEntries(calls)
+		</div>
+	}
+}
+
+// MessageBubble is the render-time data for one chat bubble. A live streaming
+// bubble uses ID/ReasoningID/ToolCallsID as patch-target names (content fields
+// zero); a stored bubble is the reverse.
+type MessageBubble struct {
+	Message     string
+	ChatType    ChatType
+	ID          string
+	ReasoningID string
+	Reasoning   string
+	ToolCallsID string
+	ToolCalls   []agent.ToolCallRecord
+}
+
+templ ChatContainer(bubble MessageBubble) {
+	{{
+		classes := "mr-0 ml-auto w-fit max-w-lg animate-fade-in rounded-xl rounded-tr-none bg-gray-100 p-4 dark:bg-neutral-800"
+		if bubble.ChatType == ChatTypeAnswer {
+			classes = "w-full animate-fade-in"
+		}
+	}}
+	<div class={ classes }>
+		switch bubble.ChatType {
+			case ChatTypeAnswer:
+				if bubble.ID != "" {
+					// Live bubbles only: the Thoughts disclosure's summary doubles as
+					// the loading indicator (see ReasoningBlock and syncThoughts).
+					@ReasoningBlock("", bubble.ReasoningID, false)
+					@ToolCallsBlock(nil, bubble.ToolCallsID)
+					// Hidden patch target for streamed deltas, left untouched by markdown-message.
+					<span id={ bubble.ID } class="hidden" data-markdown-source></span>
+					<markdown-message source={ bubble.ID }></markdown-message>
+				} else {
+					// No reply text -> expand thoughts, since they're the only content.
+					@ReasoningBlock(bubble.Reasoning, "", bubble.Message == "")
+					@ToolCallsBlock(bubble.ToolCalls, "")
+					<markdown-message>{ bubble.Message }</markdown-message>
+				}
+			default:
+				{ bubble.Message }
+		}
+	</div>
 }

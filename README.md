@@ -1,12 +1,25 @@
 # ChatWeGo
 
-Opinionated template for SSR-first Go apps: templ for HTML, tailwindcss for
-styling, Lit for web components, sqlite for data, goose for migrations.
-Everything compiles into a single binary. All tooling is managed by mise.
-Live reload development loop is set up and ready to go.
+A self-hosted chatbot. It streams markdown replies, shows reasoning traces and
+tool calls, keeps a per-session sidebar, and talks to any OpenAI-compatible
+chat completions API (llama.cpp, Ollama, vLLM, LM Studio, or OpenAI itself).
 
-It's a base for hypermedia-driven applications, and pairs well with frameworks
-like [htmx](https://htmx.org/).
+The server renders HTML with templ and streams updates with
+[Datastar](https://data-star.dev/). SQLite stores identities, sessions, and
+messages; goose manages migrations and sqlc generates the queries. Everything
+compiles into a single binary. All tooling is managed by mise, and the live
+reload development loop is set up and ready to go.
+
+## Configuration
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `OPENAI_BASE_URL` | `http://localhost:6700` | Base URL of the OpenAI-compatible API (the llama.cpp/llama-server default). |
+| `OPENAI_MODEL` | `gpt-4o-mini` | Chat model to request. |
+| `OPENAI_API_KEY` | unset | Sent as a bearer token when pointed at a provider that requires one. |
+| `DB_PATH` | `./data/sqlite.db` | SQLite database file. |
+| `HOST` / `PORT` | `localhost` / `8080` | Listen address. |
+| `DB_MIGRATE_ON_START` | `false` | Run goose migrations on startup. |
 
 Requirements:
 
@@ -63,9 +76,16 @@ project name across all source files.
 
 ## How it works
 
-The server renders HTML with templ. Forms POST to the server, which processes
-and redirects back. No client-side JS required. Web components enhance where
-needed.
+The server renders HTML with templ. The composer POSTs to `/send-prompt` and
+Datastar streams the reply back over SSE: each text delta is appended to a
+hidden accumulator, and the `<markdown-message>` web component (markdown-it +
+highlight.js) re-renders it live. Reasoning traces and tool calls render as
+collapsible disclosures. The sidebar and session URL update as sessions are
+created.
+
+A visitor gets a cookie session on first request. All sessions and messages
+are scoped to the resolved identity; the schema supports real logins, but the
+current bootstrap always uses a system identity.
 
 - Production builds embed web assets and migrations into the binary; dev mode
   serves them from disk, so changes show up on reload without a rebuild
@@ -79,8 +99,11 @@ needed.
 Tech stack:
 
 - [templ](https://templ.guide) - HTML templating
+- [Datastar](https://data-star.dev/) - streaming UI over SSE
 - [tailwindcss](https://tailwindcss.com/) - CSS styling
 - [Lit](https://lit.dev/) - web components
+- [openai-go](https://github.com/openai/openai-go) - OpenAI-compatible chat completions
+- [markdown-it](https://github.com/markdown-it/markdown-it) + [highlight.js](https://highlightjs.org/) - markdown rendering
 - [go-chi](https://github.com/go-chi/chi) - HTTP router
 - [goose](https://github.com/pressly/goose) - database migrations
 - [sqlc](https://sqlc.dev/) - type-safe database queries
@@ -159,11 +182,12 @@ git pre-push hook (installed by `task init`) runs `task check` as well.
 
 You may want to:
 
-- **Add a hypermedia framework:** [htmx](https://htmx.org/),
-  [Datastar](https://data-star.dev/), or [Alpine
-  AJAX](https://alpine-ajax.js.org/) gives you dynamic UI without writing JS.
-  All play nice with web components. See https://htmx.org/essays/alternatives/
-  for more options.
+- **Add real logins:** the identity/session tables and middleware are already
+  in place; only the login flow is missing. Replace the system-identity
+  bootstrap in `lib/session/session.go` with a real provider.
+- **Add tools or skills:** drop a new tool in `lib/agent/tools` (self-registered
+  via `tools.All`) or a markdown skill in `lib/agent/skills`. Both show up on
+  `/admin` automatically.
 - **Swap the database:** change the driver and connection string in
   `cmd/serve/main.go` to use Postgres, MySQL, or another driver, then update
   the sqlc config at `./db/sqlc.yaml`

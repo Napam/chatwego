@@ -12,6 +12,14 @@
 
 - In `web/` avoid having inline svgs, always make icons at `web/lib/web-components/icons`
 
+- Datastar drives the interactive UI. The client is vendored at
+  `web/assets/vendor/datastar.js` (bundled to `static/assets/vendor/datastar.js`)
+  and loaded per page as `<script type="module">`. Server endpoints stream with
+  `lib/datastar` (a thin wrapper over datastar-go): decode page state with
+  `datastar.ReadSignals`, open a stream with `datastar.NewSSE`, then patch
+  elements or signals. Use `datastar.PatchTextAppend` for untrusted streamed
+  text: it HTML-escapes the text so it lands as an inert text node.
+
 - JS bundling (see `web/build.ts`):
   - `web/lib/**/*.ts` → single shared `static/bundle.js`, loaded synchronously
     in `<head>` (registers all web components before body parses).

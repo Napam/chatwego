@@ -1,0 +1,106 @@
+package admin
+
+import (
+	"encoding/json"
+	"strconv"
+
+	"github.com/Napam/chatwego"
+	"github.com/Napam/chatwego/lib/agent/skills"
+	"github.com/Napam/chatwego/lib/agent/tools"
+	"github.com/Napam/chatwego/lib/htmlclass"
+)
+
+// formatParameters pretty-prints a tool's JSON schema for display. Tools are
+// a static, code-defined registry (see tools.All), so Parameters is always
+// valid JSON -- the error case here is unreachable in practice.
+func formatParameters(t tools.Tool) string {
+	data, err := json.MarshalIndent(t.Parameters, "", "  ")
+	if err != nil {
+		return "<invalid parameters: " + err.Error() + ">"
+	}
+	return string(data)
+}
+
+const cardClass = "dark:border-neutral-750 rounded-sm border border-gray-200 p-4"
+const cardSummaryClass = "cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden"
+const cardNameClass = "font-mono text-sm font-medium text-gray-800 dark:text-neutral-200"
+const cardDescriptionClass = "mt-1 text-sm text-gray-500 dark:text-neutral-400"
+const cardChevronClass = "inline-block text-gray-400 transition-transform group-open:rotate-90 dark:text-neutral-600"
+const cardBodyClass = "mt-3 max-h-64 overflow-auto rounded bg-gray-50 p-3 text-xs whitespace-pre-wrap text-gray-600 dark:bg-neutral-800 dark:text-neutral-400"
+const sectionHeadingClass = "mb-3 text-sm font-semibold tracking-wide text-gray-500 uppercase dark:text-neutral-500"
+
+// AdminPage lists every tool and skill loaded into the agent -- both are
+// static, code-defined registries (tools.All, skills.Sorted), so this page
+// needs no database access and can't drift from what the agent actually has
+// available.
+templ AdminPage() {
+	<html>
+		<head>
+			<title>ChatWeGo Admin</title>
+			<link rel="stylesheet" id="tailwindcss" href={ chatwego.StaticRootPath("static/tailwind.css") }/>
+			<script src={ chatwego.StaticRootPath("static/bundle.js") }></script>
+		</head>
+		<body class="min-h-dvh bg-white text-gray-700 dark:bg-neutral-900 dark:text-neutral-300">
+			<div class="mx-auto max-w-3xl p-8">
+				<div class="mb-8 flex items-center justify-between">
+					<h1 class="text-xl font-semibold text-gray-800 dark:text-neutral-200">Admin</h1>
+					<div class="flex items-center gap-4">
+						<a href="/" class="text-sm text-gray-500 hover:underline dark:text-neutral-400">← Back to chat</a>
+						<theme-button></theme-button>
+					</div>
+				</div>
+				@toolsSection()
+				@skillsSection()
+			</div>
+		</body>
+	</html>
+}
+
+templ toolsSection() {
+	<section class="mb-10">
+		<h2 class={ sectionHeadingClass }>Tools ({ strconv.Itoa(len(tools.All)) })</h2>
+		<div class="flex flex-col gap-3">
+			for _, t := range tools.All {
+				@toolCard(t)
+			}
+		</div>
+	</section>
+}
+
+templ toolCard(t tools.Tool) {
+	<details class={ htmlclass.Join("group", cardClass) }>
+		<summary class={ cardSummaryClass }>
+			<div class="flex items-center justify-between">
+				<code class={ cardNameClass }>{ t.Name }</code>
+				<span class={ cardChevronClass }>▸</span>
+			</div>
+			<p class={ cardDescriptionClass }>{ t.Description }</p>
+		</summary>
+		<pre class={ cardBodyClass }>{ formatParameters(t) }</pre>
+	</details>
+}
+
+templ skillsSection() {
+	{{ loaded := skills.Sorted() }}
+	<section>
+		<h2 class={ sectionHeadingClass }>Skills ({ strconv.Itoa(len(loaded)) })</h2>
+		<div class="flex flex-col gap-3">
+			for _, s := range loaded {
+				@skillCard(s)
+			}
+		</div>
+	</section>
+}
+
+templ skillCard(s skills.Skill) {
+	<details class={ htmlclass.Join("group", cardClass) }>
+		<summary class={ cardSummaryClass }>
+			<div class="flex items-center justify-between">
+				<code class={ cardNameClass }>{ s.Name }</code>
+				<span class={ cardChevronClass }>▸</span>
+			</div>
+			<p class={ cardDescriptionClass }>{ s.Description }</p>
+		</summary>
+		<pre class={ cardBodyClass }>{ s.Body }</pre>
+	</details>
+}
