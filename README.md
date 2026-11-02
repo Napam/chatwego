@@ -30,6 +30,20 @@ Everything compiles into a single binary.
 | `HOST` / `PORT`       | `localhost` / `5080`    | Listen address.                                                                      |
 | `DB_MIGRATE_ON_START` | `false`                 | Run goose migrations on startup. `task dev` sets it to `true`.                       |
 
+## Testing without a model
+
+`task dev.mock-llm` starts a deterministic OpenAI-compatible server on
+`localhost:6700`, the default `OPENAI_BASE_URL`. It streams a reasoning trace
+and a markdown reply, so the chat UI, SSE path, and persistence can be tested
+without loading a real model. The `OPENAI_MODEL` value is ignored by the mock.
+Send a prompt containing `MOCKTOOL` to trigger a `get_current_time` tool call
+first, which exercises the agent's tool loop.
+
+```sh
+task dev          # in one terminal
+task dev.mock-llm # in another
+```
+
 Requirements:
 
 - [mise](https://mise.jdx.dev) for development environment setup - mise must be
@@ -194,6 +208,7 @@ git pre-push hook (installed by `task init`) runs `task check` as well.
 ├── bin                 build output, gitignored
 │
 ├── cmd
+│   ├── mockllm         fake OpenAI-compatible server for offline testing
 │   └── serve
 │       ├── main.go     wiring, router, http server
 │       └── handlers    HTTP handlers (index, chat, send-prompt, admin)

@@ -64,7 +64,10 @@ templ RootPage(currentSessionID string, chatSessions []sqlc.ChatSession, message
 	}}
 	<html>
 		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<title>{ pageTitle }</title>
+			<link rel="icon" type="image/svg+xml" href={ chatwego.StaticRootPath("static/assets/gopher-running-filled-white.svg") }/>
 			<link rel="stylesheet" id="tailwindcss" href={ chatwego.StaticRootPath("static/tailwind.css") }/>
 			<script src={ chatwego.StaticRootPath("static/bundle.js") }></script>
 			<script type="module" src={ chatwego.StaticRootPath("static/assets/vendor/datastar.js") }></script>

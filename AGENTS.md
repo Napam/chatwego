@@ -41,6 +41,9 @@
 - The agent lives in `lib/agent`: the streaming loop in `agent.go`, tools in
   `lib/agent/tools/` (one file per tool, self-registered into `tools.All`),
   skills as markdown files in `lib/agent/skills/`.
+- `cmd/mockllm` is a deterministic OpenAI-compatible server for offline UI
+  testing. Run it with `task dev.mock-llm`; it serves on the default
+  `OPENAI_BASE_URL` (`localhost:6700`).
 - Read `docs/architecture.md` before changing the streaming path or the agent
   loop.
 
